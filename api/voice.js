@@ -30,10 +30,11 @@ module.exports = async (req, res) => {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
-    const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis", spoken = false } = req.body;
+    const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis", spoken = false, sttOnly = false, ack = "" } = req.body;
     const model = spoken ? VOICE_MODEL : MODEL;
     const code = /^[a-z]{2,3}$/.test(lang) ? lang : "";
     const name = String(langName).replace(/[^\p{L} ]/gu, "").slice(0, 30);
+    const cleanAck = String(ack || "").replace(/[^\p{L}\p{N} .,!?'’-]/gu, "").slice(0, 60);
     const auth = { Authorization: `Bearer ${process.env.GROQ_API_KEY}` };
 
     // 1. Speech to text (skipped when the message was typed)
@@ -49,9 +50,10 @@ module.exports = async (req, res) => {
       if (JUNK.test(user)) user = "";
     }
     if (!user) return res.json({ user: "", reply: "", say: "", mem: "" });
+    if (sttOnly) return res.json({ user }); // the app only wanted the words, it answers in a second step
 
     // 2. Thinking
-    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "");
+    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
     const chat = await fetch(`${GROQ}/chat/completions`, {
       method: "POST",
