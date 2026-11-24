@@ -1,5 +1,6 @@
 // Keys live in Vercel environment variables, never in this code.
 const GROQ = "https://api.groq.com/openai/v1";
+const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 const SYSTEM =
   "You are Jarvis, a friendly, quick-witted assistant. Your answer is shown on a phone screen and also spoken aloud. " +
   "Write the full answer for the screen in plain text (short lists with dashes are fine; no markdown symbols like ** or #). " +
@@ -31,7 +32,12 @@ module.exports = async (req, res) => {
     const chat = await fetch(`${GROQ}/chat/completions`, {
       method: "POST",
       headers: { ...auth, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: process.env.GROQ_MODEL || "llama-3.3-70b-versatile", messages, max_tokens: 700 }),
+      body: JSON.stringify({
+        model: MODEL,
+        messages,
+        max_tokens: 1500,
+        ...(MODEL.includes("gpt-oss") && { reasoning_effort: "low" }),
+      }),
     });
     if (!chat.ok) throw new Error("Thinking failed: " + (await chat.text()));
     let raw = (await chat.json()).choices[0].message.content.trim();
