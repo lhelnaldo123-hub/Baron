@@ -1,5 +1,9 @@
 {
   "functions": {
-    "api/voice.js": { "maxDuration": 30 }
-  }
+    "api/voice.js": { "maxDuration": 30 },
+    "api/speak.js": { "maxDuration": 30 }
+  },
+  "headers": [
+    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+  ]
 }
