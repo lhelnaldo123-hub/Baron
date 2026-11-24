@@ -1,5 +1,7 @@
 // Speaking. Turns text into an mp3 with the voice you picked.
+const cors = require("./_cors");
 module.exports = async (req, res) => {
+  if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
     const { text = "", voice = "" } = req.body;
