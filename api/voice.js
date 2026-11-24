@@ -15,13 +15,23 @@ const PERSONAS = {
     "You are Tender Sprout AI, a friendly voice tutor for teachers and students in Ghana. Use Ghanaian/British English and support the NaCCA curriculum. " +
     "Never invent official curriculum codes or claim questions are real past exam questions. Explain simply, one step at a time, and offer to quiz the student. ",
 };
+const SPOKEN =
+  "This is a live spoken conversation. Talk like a warm, natural person on a phone call: usually one to three short sentences, contractions, plain words. " +
+  "Start with a natural reaction when it fits (like 'Oh nice,' 'Right,' or 'Good question.'). " +
+  "Never use lists, headings, markdown, emojis or symbols; say numbers and symbols the way you would speak them. " +
+  "Ask at most one short follow-up question. If the topic is big, give the short version and offer to go deeper. " +
+  "Reply in the same language the user speaks, and switch if they switch. " +
+  "If the user shares something worth remembering about themselves (name, preferences, family, plans), add one last line starting with MEM: followed by a short note in English. Otherwise omit the MEM line.";
+const VOICE_MODEL = process.env.GROQ_VOICE_MODEL || "openai/gpt-oss-20b";
+const JUNK = /^(thank you\.?|thanks\.?|thanks for watching\.?|thank you for watching\.?|you\.?|bye\.?|[.\s]*)$/i;
 const cors = require("./_cors");
 
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
   try {
-    const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis" } = req.body;
+    const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis", spoken = false } = req.body;
+    const model = spoken ? VOICE_MODEL : MODEL;
     const code = /^[a-z]{2,3}$/.test(lang) ? lang : "";
     const name = String(langName).replace(/[^\p{L} ]/gu, "").slice(0, 30);
     const auth = { Authorization: `Bearer ${process.env.GROQ_API_KEY}` };
@@ -36,20 +46,21 @@ module.exports = async (req, res) => {
       const stt = await fetch(`${GROQ}/audio/transcriptions`, { method: "POST", headers: auth, body: form });
       if (!stt.ok) throw new Error("Listening failed: " + (await stt.text()));
       user = ((await stt.json()).text || "").trim();
+      if (JUNK.test(user)) user = "";
     }
     if (!user) return res.json({ user: "", reply: "", say: "", mem: "" });
 
     // 2. Thinking
-    const system = (PERSONAS[mode] || PERSONAS.jarvis) + FORMAT + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "");
+    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "");
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
     const chat = await fetch(`${GROQ}/chat/completions`, {
       method: "POST",
       headers: { ...auth, "Content-Type": "application/json" },
       body: JSON.stringify({
-        model: MODEL,
+        model,
         messages,
-        max_tokens: 1500,
-        ...(MODEL.includes("gpt-oss") && { reasoning_effort: "low" }),
+        max_tokens: spoken ? 600 : 1500,
+        ...(model.includes("gpt-oss") && { reasoning_effort: "low" }),
       }),
     });
     if (!chat.ok) throw new Error("Thinking failed: " + (await chat.text()));
@@ -58,8 +69,8 @@ module.exports = async (req, res) => {
     const m = raw.lastIndexOf("MEM:");
     if (m >= 0) { mem = raw.slice(m + 4).trim(); raw = raw.slice(0, m).trim(); }
     const i = raw.lastIndexOf("SAY:");
-    const reply = i > 0 ? raw.slice(0, i).trim() : raw.replace(/^SAY:\s*/, "");
-    const say = i >= 0 ? raw.slice(i + 4).trim() : raw.slice(0, 300);
+    const reply = spoken ? raw.replace(/^SAY:\s*/, "").replace(/[*#_`]/g, "") : i > 0 ? raw.slice(0, i).trim() : raw.replace(/^SAY:\s*/, "");
+    const say = spoken ? reply : i >= 0 ? raw.slice(i + 4).trim() : raw.slice(0, 300);
 
     res.json({ user, reply, say, mem });
   } catch (e) {
