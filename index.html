@@ -4,11 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jarvis</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#07080d">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Jarvis">
+<link rel="apple-touch-icon" href="/jarvis-icon-192.png">
 <style>
   :root { --l: 0; --c1: #3b4a7a; --c2: #2a3358; --c3: #5a6aa8;
     --bg: radial-gradient(130% 55% at 50% 100%, #1a2175 0%, #07080d 62%);
     --fg: #e8eaf2; --muted: #98a0c0; --ba: #1b2142; --bu: #2c3a78; --btn: #11152b; --line: #2a315a; }
-  body.light { --bg: linear-gradient(#f1f4fd, #dde5fb); --fg: #1b2140; --muted: #5b6485;
+  body.light { --bg: linear-gradient(#f4f2ff, #dbe4ff); --fg: #1b2140; --muted: #5b6485;
     --ba: #ffffff; --bu: #c9dcff; --btn: #ffffffd9; --line: #c5d0f0; }
   body[data-s="listen"] { --c1: #19d3c5; --c2: #2f6bff; --c3: #7be0ff; }
   body[data-s="think"]  { --c1: #a56bff; --c2: #ff6bd5; --c3: #6b8bff; }
@@ -24,7 +30,8 @@
   header { display: flex; align-items: center; justify-content: space-between; padding: .7rem 1rem; }
   .ib { width: 40px; height: 40px; border: 0; background: none; display: grid; place-items: center; border-radius: 50%; }
   .ib svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-  .title { text-align: center; }
+  .hd { display: flex; align-items: center; gap: .6rem; }
+  .title { text-align: left; }
   .title b { display: block; font-size: 1.15rem; }
   .title span { font-size: .8rem; color: var(--muted); }
   .title span::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #2ecc71; margin-right: 6px; }
@@ -35,8 +42,10 @@
   .m.u { align-self: flex-end; }
   .col { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
   .b { padding: .65rem .9rem; border-radius: 18px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; }
-  .a .b { background: var(--ba); border-bottom-left-radius: 6px; }
+  .a .b { background: var(--ba); border-bottom-left-radius: 6px;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--c2) 45%, transparent), 0 6px 22px -10px var(--c2); }
   .u .b { background: var(--bu); border-bottom-right-radius: 6px; }
+  .av.big { width: 42px; height: 42px; margin: 0; }
   .av { flex: none; width: 30px; height: 30px; border-radius: 50%; margin-top: 2px;
     background: conic-gradient(var(--c1), var(--c2), var(--c3), var(--c1)); }
   .cp { border: 0; background: none; color: var(--muted); font-size: .78rem; padding: .25rem .4rem; }
@@ -47,7 +56,14 @@
   .bars { display: flex; align-items: center; gap: 3px; height: 64px; }
   .bars b { width: 4px; height: 100%; border-radius: 2px; background: linear-gradient(var(--c3), var(--c2));
     transform: scaleY(.12); transition: transform .08s linear; }
-  .orb { position: relative; width: min(34vw, 150px); aspect-ratio: 1; border: 0; padding: 0; border-radius: 50%;
+  .orbw { position: relative; width: min(34vw, 150px); aspect-ratio: 1; flex: none; }
+  .ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--c1); opacity: 0; pointer-events: none; }
+  body[data-s="listen"] .ring, body[data-s="speak"] .ring { animation: ripple 2.4s ease-out infinite; }
+  body[data-s="listen"] .r2, body[data-s="speak"] .r2 { animation-delay: 1.2s; }
+  @keyframes ripple { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.75); opacity: 0; } }
+  .orb svg { position: absolute; inset: 0; margin: auto; width: 34%; height: 34%; z-index: 2; fill: none; stroke: #fff;
+    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px #0006); }
+  .orb { position: relative; width: 100%; aspect-ratio: 1; border: 0; padding: 0; border-radius: 50%;
     overflow: hidden; background: #0c0e17; transform: scale(calc(1 + var(--l) * .28));
     transition: transform .08s linear, box-shadow .6s; box-shadow: 0 0 60px -8px var(--c1); }
   .orb i { position: absolute; width: 85%; height: 85%; border-radius: 50%; filter: blur(22px);
@@ -61,7 +77,12 @@
     33% { transform: translate(28%, 14%) rotate(120deg) scale(1.2); }
     66% { transform: translate(-14%, 28%) rotate(240deg) scale(.9); }
   }
-  @media (prefers-reduced-motion: reduce) { .orb i, .wait .b { animation: none; } }
+  .dots { display: flex; justify-content: center; gap: 6px; height: 8px; visibility: hidden; margin-bottom: .5rem; }
+  .dots b { width: 7px; height: 7px; border-radius: 50%; background: var(--c2); animation: bounce 1s ease-in-out infinite; }
+  .dots b:nth-child(2) { animation-delay: .15s; } .dots b:nth-child(3) { animation-delay: .3s; }
+  body[data-s="think"] .dots, body[data-s="speak"] .dots { visibility: visible; }
+  @keyframes bounce { 0%, 100% { transform: translateY(0); opacity: .5; } 50% { transform: translateY(-5px); opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { .orb i, .wait .b, .ring, .dots b { animation: none !important; } }
   #st { text-align: center; margin: .3rem 0 .6rem; font-size: .95rem; color: var(--muted); min-height: 1.4em; padding: 0 1rem; }
 
   .tf { display: flex; gap: .5rem; padding: 0 1rem .6rem; }
@@ -74,23 +95,53 @@
     padding: .8rem; border-radius: 999px; border: 1px solid var(--line); background: var(--btn); }
   .btns svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   #end { color: #ff5a5a; }
+  .hr { display: flex; gap: .2rem; }
+  .vmbar { display: none; justify-content: space-between; padding: .7rem 1rem; }
+  .vmbar .ib, .hr .ib { background: var(--btn); }
+  body.vm header, body.vm #chat, body.vm .bars, body.vm .dots, body.vm .tf, body.vm #kb, body.vm #st, body.vm .orb svg { display: none !important; }
+  body.vm #st.bad { display: block !important; }
+  body.vm .vmbar { display: flex; }
+  body.vm .stage { flex: 1; padding: 0; }
+  body.vm .orbw { width: min(62vw, 260px); }
+  #sheet { position: fixed; inset: 0; background: #0008; display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+  #sheet[hidden] { display: none; }
+  .card { width: 100%; max-width: 480px; background: var(--ba); color: var(--fg); border-radius: 22px 22px 0 0;
+    padding: 1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: .6rem;
+    max-height: 90dvh; overflow: auto; }
+  .card h3 { margin: 0 0 .2rem; }
+  .card label { font-size: .8rem; color: var(--muted); margin-top: .4rem; }
+  .card select, .card input { width: 100%; border: 1px solid var(--line); background: var(--btn); color: var(--fg);
+    border-radius: 12px; padding: .7rem .8rem; font: inherit; }
+  .card button { border: 1px solid var(--line); background: var(--btn); border-radius: 12px; padding: .65rem .9rem; flex: 1; }
+  .card .pri { background: var(--c2); color: #fff; border: 0; }
+  .seg { display: flex; gap: .5rem; }
+  #vmsg { font-size: .85rem; color: var(--muted); min-height: 1.2em; }
+  .help { font-size: .8rem; color: var(--muted); line-height: 1.4; margin: 0; }
 </style>
 </head>
 <body data-s="idle">
   <header>
     <button class="ib" id="new" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
-    <div class="title"><b>Jarvis</b><span>Online</span></div>
-    <button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+    <div class="hd"><i class="av big"></i><div class="title"><b>Jarvis</b><span>Always here to help…</span></div></div>
+    <div class="hr"><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </header>
+  <div class="vmbar">
+    <button class="ib" id="vback" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>
+    <button class="ib" id="vset" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
+  </div>
 
   <div id="chat" aria-live="polite"></div>
 
   <div class="stage">
     <div class="bars" aria-hidden="true"></div>
-    <button class="orb" id="orb" aria-label="Tap to talk"><i></i><i></i><i></i></button>
+    <div class="orbw"><span class="ring"></span><span class="ring r2"></span>
+      <button class="orb" id="orb" aria-label="Tap to talk"><i></i><i></i><i></i>
+        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+      </button></div>
     <div class="bars" aria-hidden="true"></div>
   </div>
   <p id="st">Tap the orb to start talking</p>
+  <div class="dots" aria-hidden="true"><b></b><b></b><b></b></div>
 
   <form class="tf" id="tf" hidden>
     <input id="ti" placeholder="Type a message" autocomplete="off" aria-label="Type a message">
@@ -103,6 +154,27 @@
   </div>
   <audio id="a" playsinline></audio>
 
+  <div id="sheet" hidden>
+    <div class="card">
+      <h3>Settings</h3>
+      <label>Theme</label>
+      <div class="seg"><button id="thd">Dark</button><button id="thl">Light</button></div>
+      <label>Language</label>
+      <select id="lsel" aria-label="Choose language"></select>
+      <label>Voice</label>
+      <select id="vsel" aria-label="Choose voice"></select>
+      <div class="seg"><button id="vtest">Test voice</button><button id="vdel">Remove</button></div>
+      <label>Add a voice</label>
+      <input id="vname" placeholder="Name (for example Sarah)" autocomplete="off">
+      <input id="vid" placeholder="Paste Fish voice link or ID" autocomplete="off">
+      <button id="vadd">Add voice</button>
+      <p class="help">On fish.audio, open a voice you like and copy its link from the browser. Paste it above.</p>
+      <div id="vmsg"></div>
+      <button id="inst">Install app</button>
+      <button class="pri" id="done">Done</button>
+    </div>
+  </div>
+
 <script>
 const $ = s => document.querySelector(s);
 const player = $("#a"), chat = $("#chat");
@@ -111,7 +183,15 @@ const TYPES = [["audio/webm;codecs=opus", "webm"], ["audio/mp4", "mp4"], ["audio
 const [mime, ext] = TYPES.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t[0])) || ["", "webm"];
 
 let state = "idle", on = false, paused = false, ctx, micAn, outAn, stream, rec, chunks = [];
-let speechStart = 0, lastVoice = 0, history = [];
+let speechStart = 0, lastVoice = 0;
+const load = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } };
+const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const LANGS = [["", "Auto-detect"], ["en", "English"], ["es", "Spanish"], ["fr", "French"], ["de", "German"], ["pt", "Portuguese"],
+  ["it", "Italian"], ["hi", "Hindi"], ["ar", "Arabic"], ["zh", "Chinese"], ["ja", "Japanese"], ["ko", "Korean"], ["ru", "Russian"],
+  ["tr", "Turkish"], ["sw", "Swahili"], ["yo", "Yoruba"], ["ha", "Hausa"]];
+let lang = ""; try { lang = localStorage.getItem("jv-lang") || ""; } catch (e) {}
+let history = load("jv-history"), memory = load("jv-memory"), voices = load("jv-voices"), voice = "";
+try { voice = localStorage.getItem("jv-voice") || ""; } catch (e) {}
 
 // waveform bars either side of the orb
 document.querySelectorAll(".bars").forEach(g => { for (let i = 0; i < 8; i++) g.append(document.createElement("b")); });
@@ -121,7 +201,7 @@ const barsTo = (l, now) => bars.forEach((b, i) =>
 
 function set(s, text) {
   state = s; document.body.dataset.s = s;
-  if (text !== undefined) $("#st").textContent = text;
+  if (text !== undefined) { $("#st").textContent = text; $("#st").classList.toggle("bad", /^(Error|Microphone)/.test(text)); }
 }
 
 const data = new Float32Array(1024);
@@ -217,7 +297,7 @@ function tick() {
 
   if (state === "listen") {
     if (mic > .12) { if (!speechStart) speechStart = now; lastVoice = now; }
-    else if (speechStart && now - lastVoice > 1300) finish();
+    else if (speechStart && now - lastVoice > 900) finish();
   } else if (state === "speak" && mic > .35) {
     player.pause(); listen(); // you interrupted
   }
@@ -231,27 +311,34 @@ async function sendBlob(blob) {
   send({ audio, ext });
 }
 
+let turn = 0;
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "Request failed");
+  return d;
+}
+
 async function send(payload, typed) {
+  const my = ++turn;
   const wait = bubble("a", "", null, true);
   if (typed) bubble("u", typed, wait);
   try {
-    const r = await fetch("/api/voice", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, history }),
-    });
-    const d = await r.json();
-    if (!r.ok) throw new Error(d.error || "Request failed");
+    const d = await post("/api/voice", { ...payload, history, memory, lang, langName: (LANGS.find(l => l[0] === lang) || [])[1] || "" });
     if (!d.reply) { wait.remove(); if (on && !paused) listen(); return; }
     if (!typed) bubble("u", d.user, wait);
     bubble("a", d.reply, wait); wait.remove();
     history.push({ role: "user", content: d.user }, { role: "assistant", content: d.reply + "\nSAY: " + d.say });
-    history = history.slice(-16);
-    if (!on || paused || !d.audio) { if (on && !paused) listen(); return; }
-    player.src = "data:audio/mpeg;base64," + d.audio;
+    history = history.slice(-16); save("jv-history", history);
+    if (d.mem && !memory.includes(d.mem)) { memory.push(d.mem); memory = memory.slice(-30); save("jv-memory", memory); }
+    if (!on || paused) return;
+    const v = await post("/api/speak", { text: d.say || d.reply, voice });   // text is already on screen while this loads
+    if (my !== turn || !on || paused) return;
+    player.src = "data:audio/mpeg;base64," + v.audio;
     set("speak", "Speaking…");
     await player.play();
   } catch (e) {
-    wait.remove(); set("idle", "Error: " + e.message);
+    wait.remove(); set("idle", "Error: " + (navigator.onLine ? e.message : "No internet. I need to be online to talk."));
     if (on && !paused) setTimeout(() => on && !paused && listen(), 3000);
   }
 }
@@ -262,9 +349,9 @@ $("#orb").onclick = () => {
   else if (paused) pause();
   else if (state === "speak") { player.pause(); listen(); }
 };
-$("#end").onclick = end;
+$("#end").onclick = () => { end(); vmOff(); };
 $("#pause").onclick = pause;
-$("#new").onclick = () => { history = []; chat.replaceChildren(); };
+$("#new").onclick = () => { history = []; save("jv-history", history); chat.replaceChildren(); };
 $("#kb").onclick = () => { const f = $("#tf"); f.hidden = !f.hidden; if (!f.hidden) $("#ti").focus(); };
 $("#tf").onsubmit = e => {
   e.preventDefault();
@@ -279,7 +366,53 @@ function theme(light) {
   try { localStorage.setItem("jv-theme", light ? "light" : "dark"); } catch (e) {}
 }
 try { theme(localStorage.getItem("jv-theme") === "light"); } catch (e) {}
-$("#gear").onclick = () => theme(!document.body.classList.contains("light"));
+
+LANGS.forEach(l => $("#lsel").append(new Option(l[1], l[0])));
+$("#lsel").value = lang;
+$("#lsel").onchange = e => { lang = e.target.value; try { localStorage.setItem("jv-lang", lang); } catch (x) {} };
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js").catch(() => {});
+let installEv = null;
+addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEv = e; });
+if (matchMedia("(display-mode: standalone)").matches || navigator.standalone) $("#inst").hidden = true;
+$("#inst").onclick = () => {
+  if (installEv) { installEv.prompt(); installEv = null; }
+  else $("#vmsg").textContent = "iPhone: tap Share, then Add to Home Screen. Android: open the browser menu, then Install app.";
+};
+function vmOff() { document.body.classList.remove("vm"); }
+$("#vmb").onclick = async () => { document.body.classList.add("vm"); if (!on) await begin(); };
+$("#vback").onclick = () => { end(); vmOff(); };
+$("#vset").onclick = () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; };
+function drawVoices() {
+  const sel = $("#vsel"); sel.replaceChildren(new Option("Default voice", ""));
+  voices.forEach(v => sel.append(new Option(v.name, v.id)));
+  sel.value = voice; voice = sel.value;
+}
+function pick(v) { voice = v; try { localStorage.setItem("jv-voice", v); } catch (e) {} }
+drawVoices();
+$("#gear").onclick = () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; };
+$("#done").onclick = () => $("#sheet").hidden = true;
+$("#sheet").onclick = e => { if (e.target.id === "sheet") e.target.hidden = true; };
+$("#thd").onclick = () => theme(false);
+$("#thl").onclick = () => theme(true);
+$("#vsel").onchange = e => pick(e.target.value);
+$("#vadd").onclick = () => {
+  const name = $("#vname").value.trim() || "My voice";
+  const id = $("#vid").value.trim().split(/[\/?#]/).filter(Boolean).pop() || "";
+  if (!/^[\w-]{8,64}$/.test(id)) { $("#vmsg").textContent = "That doesn't look like a voice link or ID."; return; }
+  voices = voices.filter(v => v.id !== id).concat({ name, id }); save("jv-voices", voices);
+  pick(id); drawVoices(); $("#vname").value = $("#vid").value = ""; $("#vmsg").textContent = "Added. Tap Test voice to hear it.";
+};
+$("#vdel").onclick = () => {
+  if (!voice) return;
+  voices = voices.filter(v => v.id !== voice); save("jv-voices", voices); pick(""); drawVoices();
+};
+$("#vtest").onclick = async () => {
+  $("#vmsg").textContent = "Loading voice…";
+  try {
+    const v = await post("/api/speak", { text: "Hello! This is how I sound.", voice });
+    player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); $("#vmsg").textContent = "";
+  } catch (e) { $("#vmsg").textContent = e.message; }
+};
 </script>
 </body>
   </html>
