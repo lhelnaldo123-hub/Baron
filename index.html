@@ -398,8 +398,21 @@ async function greet() {
   lastGreet = Date.now();
   let boss = "boss"; try { boss = localStorage.getItem("jv-boss") || "boss"; } catch (e) {}
   const h = new Date().getHours(), hi = h < 5 ? "Hello" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
-  const tails = ["Welcome back.", "Good to see you.", "Everything is ready."];
-  const text = hi + ", " + boss + ". " + tails[Math.floor(Math.random() * tails.length)];
+  const pool = ["Welcome back.", "Good to see you.", "Everything is ready.", "I hope your day is going well.", "Take a deep breath, you've got this.",
+    "Today is a good day to get things done.", "You're doing better than you think.", "Whatever you need, I'm here.", "Let's make today count.",
+    "Small steps still move you forward.", "Don't forget to drink some water.", "Your ideas matter. Let's build something.", "I saved your seat, as always.",
+    "Ready when you are.", "Nice to have you back.", "Stay calm and carry on.", "Let's turn plans into progress.", "You've earned a smile today.",
+    "I've been waiting for you.", "Another chance to do something great.", "Rest is part of the work too.", "Let's get to it.",
+    "Good things are coming your way.", "Remember to stretch your legs.", "Your future self says thank you."];
+  const dayLine = ["Happy Sunday. Take it easy.", "Fresh week, fresh start.", "Tuesday. Keep the momentum going.", "Midweek already. You're doing great.",
+    "Almost there. Thursday energy.", "It's Friday. You made it.", "Happy Saturday. Enjoy it."][new Date().getDay()];
+  const today = new Date().toDateString();
+  let last = {}; try { last = JSON.parse(localStorage.getItem("jv-gl")) || {}; } catch (e) {}
+  let tail;
+  if (last.day !== today) tail = dayLine; // first hello of the day mentions the day
+  else { let i; do { i = Math.floor(Math.random() * pool.length); } while (i === last.i && pool.length > 1); last.i = i; tail = pool[i]; }
+  try { localStorage.setItem("jv-gl", JSON.stringify({ day: today, i: last.i })); } catch (e) {}
+  const text = hi + ", " + boss + ". " + tail;
   $("#st").textContent = text;
   try {
     const key = "jv-g:" + voice + ":" + text; let audio = null;
