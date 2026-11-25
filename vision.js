@@ -187,7 +187,7 @@
 
   // ---------- MediaPipe ----------
   async function loadLibs() {
-    if (!mp) mp = await import(CDN + "/vision_bundle.mjs");
+    if (!mp) { try { mp = await import(CDN + "/vision_bundle.mjs"); } catch (e) { mp = await import(CDN + "/+esm"); } }
     if (!fileset) fileset = await mp.FilesetResolver.forVisionTasks(CDN + "/wasm");
   }
   async function make(Cls, opts) {
