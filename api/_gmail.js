@@ -1,5 +1,5 @@
 // Gmail helper: read unread mail, write a reply with the AI, save it as a Gmail DRAFT.
-// Nothing here sends an email. You review and press send yourself in Gmail.
+// Drafts are only sent by sendDraft(), which the app calls after you tap a Send button.
 const GROQ = "https://api.groq.com/openai/v1";
 const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 let cache = { t: "", exp: 0 };
@@ -119,8 +119,14 @@ function rawMessage(m, body) {
 async function draftReply(id, note = "") {
   const m = await full(String(id));
   const body = await writeReply(m, String(note).slice(0, 500));
-  await gmail("drafts", { method: "POST", body: JSON.stringify({ message: { raw: rawMessage(m, body), threadId: m.threadId } }) });
-  return { to: m.replyTo || m.from, subject: m.subject, body };
+  const created = await gmail("drafts", { method: "POST", body: JSON.stringify({ message: { raw: rawMessage(m, body), threadId: m.threadId } }) });
+  return { id: created.id, to: m.replyTo || m.from, subject: m.subject, body };
 }
 
-module.exports = { configured, inbox, draftReply, rawMessage };
+// Sends a draft that already exists. Callers must only do this after the user confirmed with a button tap.
+async function sendDraft(id) {
+  if (!/^[\w-]{1,64}$/.test(String(id))) throw new Error("Bad draft id");
+  return gmail("drafts/send", { method: "POST", body: JSON.stringify({ id: String(id) }) });
+}
+
+module.exports = { configured, inbox, draftReply, sendDraft, rawMessage };
