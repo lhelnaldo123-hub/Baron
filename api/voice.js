@@ -28,6 +28,9 @@ const cors = require("./_cors");
 const auth = require("./_auth");
 const mail = require("./_gmail");
 
+const HEALTH =
+  "\nIf the user mentions symptoms or how their body feels, be caring and ask one short question at a time. Give general self-care tips only, never a diagnosis or medicine doses. " +
+  "Suggest seeing a doctor or clinic for anything serious or lasting. For chest pain, trouble breathing, fainting or severe symptoms, tell them to get urgent medical help right away.";
 const TOOLS = [
   { type: "function", function: { name: "check_inbox", description: "List the user's newest unread emails (id, from, subject, snippet).", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "draft_reply", description: "Write a reply to one email and save it in the user's Gmail Drafts. It never sends. Use only when the user asks to reply.",
@@ -76,7 +79,7 @@ module.exports = async (req, res) => {
     if (sttOnly) return res.json({ user }); // the app only wanted the words, it answers in a second step
 
     // 2. Thinking
-    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + (mail.configured() ? MAIL_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
+    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
     const callChat = async (msgs, withTools) => {
       const r = await fetch(`${GROQ}/chat/completions`, {
