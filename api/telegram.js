@@ -92,6 +92,14 @@ async function onButton(q) {
   const owner = String(process.env.TELEGRAM_OWNER_ID || "");
   if (!owner || String(q.from.id) !== owner) return tg("answerCallbackQuery", { callback_query_id: q.id, text: "Not allowed" });
   const data = String(q.data || "");
+  if (data.startsWith("draft:")) {
+    await tg("answerCallbackQuery", { callback_query_id: q.id, text: "Writing a reply…" });
+    try {
+      const d = await mail.draftReply(data.slice(6), "");
+      if (q.message) await sendText(q.message.chat.id, `Draft reply to ${d.to}:\n\n${d.body}\n\nSaved in Gmail Drafts.`, [{ id: d.id, to: d.to }]);
+    } catch (e) { if (q.message) await sendText(q.message.chat.id, "Could not write the reply: " + String(e.message).slice(0, 150)); }
+    return;
+  }
   if (!data.startsWith("send:")) return tg("answerCallbackQuery", { callback_query_id: q.id });
   try {
     await mail.sendDraft(data.slice(5));
@@ -120,3 +128,5 @@ module.exports = async (req, res) => {
   res.status(200).json({ ok: true });
 };
 module.exports.secretFor = secretFor;
+module.exports.sendText = sendText;
+module.exports.tg = tg;
