@@ -3,6 +3,7 @@
 const GROQ = "https://api.groq.com/openai/v1";
 const MODEL = process.env.GROQ_MODEL || "openai/gpt-oss-120b";
 let cache = { t: "", exp: 0 };
+const env = n => String(process.env[n] || "").replace(/^["'\s]+|["'\s]+$/g, "");
 
 const configured = () => !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_REFRESH_TOKEN);
 const oneLine = s => String(s || "").replace(/[\r\n]+/g, " ").trim();
@@ -13,9 +14,9 @@ async function accessToken() {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: process.env.GOOGLE_REFRESH_TOKEN,
+      client_id: env("GOOGLE_CLIENT_ID"),
+      client_secret: env("GOOGLE_CLIENT_SECRET"),
+      refresh_token: env("GOOGLE_REFRESH_TOKEN"),
       grant_type: "refresh_token",
     }),
   });
