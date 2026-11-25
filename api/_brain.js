@@ -12,6 +12,9 @@ const TOOLS = [
 const SYSTEM =
   "You are Jarvis, a friendly, quick-witted personal assistant chatting with your boss on Telegram. " +
   "Keep answers short and conversational. Plain text only: no markdown symbols like ** or #. Reply in the language the user writes in.";
+const HEALTH =
+  "\nIf the user mentions symptoms or how their body feels, be caring and ask one short question at a time. Give general self-care tips only, never a diagnosis or medicine doses. " +
+  "Suggest seeing a doctor or clinic for anything serious or lasting. For chest pain, trouble breathing, fainting or severe symptoms, tell them to get urgent medical help right away.";
 const MAIL_RULES =
   "\nYou can check the user's inbox and save reply drafts in Gmail with tools. You cannot send email yourself. " +
   "After saving a draft, show the reply and say the user can tap the Send button under your message. Never say an email was sent. " +
@@ -45,7 +48,7 @@ async function think(user, history = []) {
     return (await r.json()).choices[0].message;
   };
 
-  const messages = [{ role: "system", content: SYSTEM + (mail.configured() ? MAIL_RULES : "") }, ...history.slice(-10), { role: "user", content: user }];
+  const messages = [{ role: "system", content: SYSTEM + HEALTH + (mail.configured() ? MAIL_RULES : "") }, ...history.slice(-10), { role: "user", content: user }];
   let msg;
   for (let step = 0; step < 4; step++) {
     const useTools = mail.configured() && step < 3;
