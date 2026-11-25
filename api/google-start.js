@@ -1,12 +1,13 @@
 // Sends you to Google to allow Gmail access (one time).
 const auth = require("./_auth");
+const env = n => String(process.env[n] || "").replace(/^["'\s]+|["'\s]+$/g, "");
 
 module.exports = (req, res) => {
   const t = String((req.query && req.query.t) || "");
   if (!auth.verify(t)) return res.status(401).send("Locked. Open the app, log in, and tap Connect Gmail again.");
-  if (!process.env.GOOGLE_CLIENT_ID) return res.status(500).send("GOOGLE_CLIENT_ID is not set in Vercel.");
+  if (!env("GOOGLE_CLIENT_ID")) return res.status(500).send("GOOGLE_CLIENT_ID is not set in Vercel.");
   const p = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID,
+    client_id: env("GOOGLE_CLIENT_ID"),
     redirect_uri: `https://${req.headers.host}/api/google-callback`,
     response_type: "code",
     scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose",
