@@ -20,6 +20,7 @@ module.exports = async (req, res) => {
     }
     if (action === "inbox") return res.json({ emails: await gmail.inbox(5) });
     if (action === "draft") return res.json(await gmail.draftReply(id, note));
+    if (action === "send") { await gmail.sendDraft(id); return res.json({ sent: true }); }
     res.status(400).json({ error: "Unknown action" });
   } catch (e) {
     res.status(500).json({ error: String(e.message).slice(0, 300) });
