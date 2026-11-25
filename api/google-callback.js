@@ -1,5 +1,6 @@
 // Google sends you back here. It shows the refresh token once so you can paste it into Vercel.
 const auth = require("./_auth");
+const env = n => String(process.env[n] || "").replace(/^["'\s]+|["'\s]+$/g, "");
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 const page = (res, status, body) => {
   res.setHeader("Content-Type", "text/html; charset=utf-8");
@@ -18,8 +19,8 @@ module.exports = async (req, res) => {
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code: String(code),
-        client_id: process.env.GOOGLE_CLIENT_ID,
-        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        client_id: env("GOOGLE_CLIENT_ID"),
+        client_secret: env("GOOGLE_CLIENT_SECRET"),
         redirect_uri: `https://${req.headers.host}/api/google-callback`,
         grant_type: "authorization_code",
       }),
