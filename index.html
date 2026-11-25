@@ -209,6 +209,7 @@
     </div>
   </div>
 
+<script src="/skin.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const player = $("#a"), chat = $("#chat");
@@ -603,7 +604,7 @@ async function transcribe(my, audio) {
     const heard = String(d.user || "").trim();
     if (!heard) { if (held) respond(my, held); else listen(); return; }
     const full = (held ? held + " " : "") + heard;
-    if (window.jvCommand && window.jvCommand(full)) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
+    if ((window.Skin && window.Skin.command(full)) || (window.jvCommand && window.jvCommand(full))) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
       dropHeld(); bubble("u", full); if (on && !paused) listen(); return;
     }
     if (holds < 2 && incomplete(full)) {        // still thinking out loud: keep listening and join the next part
