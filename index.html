@@ -103,8 +103,13 @@
   body.vm .vmbar { display: flex; }
   body.vm .stage { flex: 1; padding: 0; }
   body.vm .orbw { width: min(62vw, 260px); }
-  #sheet { position: fixed; inset: 0; background: #0008; display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
-  #sheet[hidden] { display: none; }
+  #sheet, #lock, #mailsheet { position: fixed; inset: 0; background: #0008; display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+  #sheet[hidden], #lock[hidden], #mailsheet[hidden] { display: none; }
+  #lock { z-index: 60; align-items: center; background: #000c; }
+  #lock .card { border-radius: 22px; margin: 1rem; width: calc(100% - 2rem); }
+  .mi { border: 1px solid var(--line); border-radius: 14px; padding: .7rem; display: flex; flex-direction: column; gap: .35rem; }
+  .mi b { overflow-wrap: anywhere; }
+  .mi > div { overflow-wrap: anywhere; }
   .card { width: 100%; max-width: 480px; background: var(--ba); color: var(--fg); border-radius: 22px 22px 0 0;
     padding: 1.1rem 1.1rem calc(1.1rem + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: .6rem;
     max-height: 90dvh; overflow: auto; }
@@ -148,6 +153,7 @@
     <button type="submit">Send</button>
   </form>
   <div class="btns">
+    <button id="mailb"><svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>Mail</button>
     <button id="kb"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>Type</button>
     <button id="pause"><svg viewBox="0 0 24 24"><path d="M9 5v14M15 5v14"/></svg><span>Pause</span></button>
     <button id="end"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>End</button>
@@ -170,8 +176,33 @@
       <button id="vadd">Add voice</button>
       <p class="help">On fish.audio, open a voice you like and copy its link from the browser. Paste it above.</p>
       <div id="vmsg"></div>
+      <label>What should I call you?</label>
+      <input id="boss" placeholder="boss" autocomplete="off" aria-label="Your name">
+      <button id="bioset" hidden>Use fingerprint to open</button>
+      <div class="seg"><button id="gconn">Connect Gmail</button><button id="lockbtn">Lock app</button></div>
       <button id="inst">Install app</button>
       <button class="pri" id="done">Done</button>
+    </div>
+  </div>
+
+  <div id="lock" hidden>
+    <form class="card" id="lockform">
+      <h3>Jarvis is locked</h3>
+      <button type="button" class="pri" id="biobtn" hidden>Unlock with fingerprint</button>
+      <input id="lockpw" type="password" placeholder="Passcode" autocomplete="current-password" aria-label="Passcode">
+      <div id="lockmsg" class="help"></div>
+      <button class="pri" type="submit">Unlock</button>
+    </form>
+  </div>
+
+  <div id="mailsheet" hidden>
+    <div class="card">
+      <h3>Email</h3>
+      <p class="help">Replies are saved as drafts first. Nothing is sent until you tap Send now.</p>
+      <input id="mnote" placeholder="What should replies say? (optional)" autocomplete="off">
+      <div id="mmsg" class="help"></div>
+      <div id="mlist" style="display:flex;flex-direction:column;gap:.6rem"></div>
+      <div class="seg"><button id="mrefresh">Refresh</button><button class="pri" id="mclose">Done</button></div>
     </div>
   </div>
 
@@ -312,9 +343,84 @@ async function sendBlob(blob) {
 }
 
 let turn = 0;
-async function post(url, body) {
-  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+let token = ""; try { token = localStorage.getItem("jv-token") || ""; } catch (e) {}
+let lockWait = null, lockOk = null;
+const hasBio = () => { try { return !!localStorage.getItem("jv-bio"); } catch (e) { return false; } };
+function askPass(msg, fresh) {
+  if (lockWait) return lockWait;
+  lockWait = new Promise(ok => { lockOk = ok; });
+  $("#lockmsg").textContent = msg || ""; $("#biobtn").hidden = !(hasBio() && !fresh);
+  $("#lock").hidden = false; if (!hasBio() || fresh) $("#lockpw").focus();
+  return lockWait;
+}
+function unlocked() { $("#lock").hidden = true; const ok = lockOk; lockWait = lockOk = null; ok && ok(); }
+$("#lockform").onsubmit = async e => {
+  e.preventDefault();
+  const pw = $("#lockpw").value; if (!pw) return;
+  primeAudio(); $("#lockmsg").textContent = "Checking…";
+  try {
+    const r = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ passcode: pw }) });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(d.error || "Wrong passcode");
+    token = d.token; try { localStorage.setItem("jv-token", token); } catch (x) {}
+    $("#lockpw").value = ""; unlocked(); greet();
+  } catch (x) { $("#lockmsg").textContent = x.message; }
+};
+
+// Fingerprint / face unlock (this phone's own lock for the app screen)
+const rnd = n => crypto.getRandomValues(new Uint8Array(n));
+const fromB64 = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+const toB64 = a => btoa(String.fromCharCode(...new Uint8Array(a))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+async function bioUnlock() {
+  primeAudio();
+  try {
+    await navigator.credentials.get({ publicKey: { challenge: rnd(32), userVerification: "required", timeout: 60000,
+      allowCredentials: [{ type: "public-key", id: fromB64(localStorage.getItem("jv-bio")) }] } });
+    unlocked(); greet();
+  } catch (e) { $("#lockmsg").textContent = "Fingerprint did not work. Tap the button to try again, or use your passcode."; }
+}
+$("#biobtn").onclick = bioUnlock;
+async function bioEnable() {
+  try {
+    const c = await navigator.credentials.create({ publicKey: { challenge: rnd(32), rp: { name: "Jarvis" },
+      user: { id: rnd(16), name: "boss", displayName: "Boss" },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }, { type: "public-key", alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: "platform", userVerification: "required", residentKey: "discouraged" }, timeout: 60000 } });
+    localStorage.setItem("jv-bio", toB64(c.rawId)); return true;
+  } catch (e) { return false; }
+}
+
+// Audio priming + welcome greeting
+function primeAudio() { if (typeof on !== "undefined" && on) return; try { player.src = SILENCE; player.play().catch(() => {}); } catch (e) {} }
+let lastGreet = 0;
+async function greet() {
+  if ((typeof on !== "undefined" && on) || Date.now() - lastGreet < 60000) return;
+  lastGreet = Date.now();
+  let boss = "boss"; try { boss = localStorage.getItem("jv-boss") || "boss"; } catch (e) {}
+  const h = new Date().getHours(), hi = h < 5 ? "Hello" : h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const tails = ["Welcome back.", "Good to see you.", "Everything is ready."];
+  const text = hi + ", " + boss + ". " + tails[Math.floor(Math.random() * tails.length)];
+  $("#st").textContent = text;
+  try {
+    const key = "jv-g:" + voice + ":" + text; let audio = null;
+    try { audio = localStorage.getItem(key); } catch (e) {}
+    if (!audio) {
+      audio = (await post("/api/speak", { text, voice })).audio;
+      try {
+        Object.keys(localStorage).filter(k => k.startsWith("jv-g:")).slice(8).forEach(k => localStorage.removeItem(k));
+        localStorage.setItem(key, audio);
+      } catch (e) {}
+    }
+    if (typeof on !== "undefined" && on) return;
+    player.src = "data:audio/mpeg;base64," + audio; await player.play();
+  } catch (e) { /* greeting is optional */ }
+}
+window.jvGreet = greet; window.jvPrime = primeAudio;
+
+async function post(url, body, retried) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json", ...(token && { Authorization: "Bearer " + token }) }, body: JSON.stringify(body) });
   const d = await r.json().catch(() => ({}));
+  if (r.status === 401 && !retried) { token = ""; await askPass("Enter your passcode", true); return post(url, body, true); }
   if (!r.ok) throw new Error(d.error || "Request failed");
   return d;
 }
@@ -379,6 +485,7 @@ $("#inst").onclick = () => {
   else $("#vmsg").textContent = "iPhone: tap Share, then Add to Home Screen. Android: open the browser menu, then Install app.";
 };
 $("#eye").onclick = () => {
+  primeAudio();
   if (window.Vision) return Vision.open();
   const s = document.createElement("script"); s.src = "/vision.js";
   s.onload = () => Vision.open(); s.onerror = () => set("idle", "Error: Vision could not load.");
@@ -419,6 +526,63 @@ $("#vtest").onclick = async () => {
     player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); $("#vmsg").textContent = "";
   } catch (e) { $("#vmsg").textContent = e.message; }
 };
+if (!token) askPass("", true);
+else if (hasBio()) { askPass("Unlock to continue"); bioUnlock(); }
+if (window.PublicKeyCredential && PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable) {
+  PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable().then(ok => { if (ok) { $("#bioset").hidden = false; drawBio(); } }).catch(() => {});
+}
+function drawBio() { $("#bioset").textContent = hasBio() ? "Fingerprint unlock: ON (tap to turn off)" : "Use fingerprint to open"; }
+$("#bioset").onclick = async () => {
+  if (hasBio()) { try { localStorage.removeItem("jv-bio"); } catch (e) {} $("#vmsg").textContent = "Fingerprint unlock is off."; }
+  else $("#vmsg").textContent = (await bioEnable()) ? "Fingerprint unlock is on. It will ask next time you open Jarvis." : "Could not set up fingerprint on this phone.";
+  drawBio();
+};
+try { $("#boss").value = localStorage.getItem("jv-boss") || ""; } catch (e) {}
+$("#boss").onchange = e => { try { localStorage.setItem("jv-boss", e.target.value.trim()); } catch (x) {} };
+$("#lockbtn").onclick = () => { token = ""; try { localStorage.removeItem("jv-token"); } catch (e) {} $("#sheet").hidden = true; askPass("", true); };
+$("#gconn").onclick = async () => {
+  $("#vmsg").textContent = "Opening Google…";
+  try { const d = await post("/api/mail", { action: "link" }); location.href = d.url; }
+  catch (e) { $("#vmsg").textContent = e.message; }
+};
+function mailItem(m) {
+  const w = document.createElement("div"); w.className = "mi";
+  const f = document.createElement("b"); f.textContent = m.from;
+  const sub = document.createElement("div"); sub.textContent = m.subject;
+  const p = document.createElement("p"); p.className = "help"; p.textContent = m.snippet;
+  const out = document.createElement("div"); out.className = "help"; out.style.whiteSpace = "pre-wrap";
+  const b = document.createElement("button"); b.textContent = "Draft reply";
+  b.onclick = async () => {
+    b.disabled = true; out.textContent = "Writing…";
+    try {
+      const d = await post("/api/mail", { action: "draft", id: m.id, note: $("#mnote").value.trim() });
+      out.textContent = "Saved to Gmail Drafts:\n\n" + d.body + "\n\n";
+      const sb = document.createElement("button"); sb.textContent = "Send now";
+      sb.onclick = async () => {
+        if (!confirm("Send this reply to " + d.to + "?")) return;
+        sb.disabled = true;
+        try { await post("/api/mail", { action: "send", id: d.id }); out.textContent = "Sent to " + d.to + "."; w.querySelector("button").remove(); }
+        catch (e) { out.textContent = e.message; sb.disabled = false; }
+      };
+      out.append(sb);
+    }
+    catch (e) { out.textContent = e.message; }
+    b.disabled = false;
+  };
+  w.append(f, sub, p, b, out); return w;
+}
+async function loadMail() {
+  const box = $("#mlist"); box.replaceChildren(); $("#mmsg").textContent = "Checking inbox…";
+  try {
+    const d = await post("/api/mail", { action: "inbox" });
+    $("#mmsg").textContent = d.emails.length ? "" : "No unread emails.";
+    d.emails.forEach(m => box.append(mailItem(m)));
+  } catch (e) { $("#mmsg").textContent = e.message; }
+}
+$("#mailb").onclick = () => { $("#mailsheet").hidden = false; loadMail(); };
+$("#mrefresh").onclick = loadMail;
+$("#mclose").onclick = () => $("#mailsheet").hidden = true;
+$("#mailsheet").onclick = e => { if (e.target.id === "mailsheet") e.target.hidden = true; };
 </script>
 </body>
   </html>
