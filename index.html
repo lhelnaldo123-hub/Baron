@@ -11,9 +11,11 @@
 <meta name="apple-mobile-web-app-title" content="Jarvis">
 <link rel="apple-touch-icon" href="/jarvis-icon-192.png">
 <style>
-  :root { --l: 0; --c1: #3b4a7a; --c2: #2a3358; --c3: #5a6aa8;
-    --bg: radial-gradient(130% 55% at 50% 100%, #1a2175 0%, #07080d 62%);
-    --fg: #e8eaf2; --muted: #98a0c0; --ba: #1b2142; --bu: #2c3a78; --btn: #11152b; --line: #2a315a; }
+  :root { --l: 0; --c1: #1f7bff; --c2: #1247c9; --c3: #5fd6ff;
+    --bg: linear-gradient(rgba(95,214,255,.045) 1px, transparent 1px) 0 0 / 34px 34px,
+          linear-gradient(90deg, rgba(95,214,255,.045) 1px, transparent 1px) 0 0 / 34px 34px,
+          radial-gradient(120% 62% at 50% 52%, #0b2f7a 0%, #04112e 55%, #01040d 100%);
+    --fg: #e8eaf2; --muted: #98a0c0; --ba: #0d1c40; --bu: #17358a; --btn: #0a1633; --line: #1d3a78; }
   body.light { --bg: linear-gradient(#f4f2ff, #dbe4ff); --fg: #1b2140; --muted: #5b6485;
     --ba: #ffffff; --bu: #c9dcff; --btn: #ffffffd9; --line: #c5d0f0; }
   body[data-s="listen"] { --c1: #19d3c5; --c2: #2f6bff; --c3: #7be0ff; }
@@ -52,8 +54,7 @@
   .wait .b { animation: pulse 1s ease-in-out infinite; }
   @keyframes pulse { 50% { opacity: .35; } }
 
-  .stage { display: flex; align-items: center; justify-content: center; gap: 14px; padding: 1.1rem 0 .4rem; }
-  .bars { display: flex; align-items: center; gap: 3px; height: 64px; }
+  .bars { display: flex; align-items: center; justify-content: center; gap: 3px; height: 100%; }
   .bars b { width: 4px; height: 100%; border-radius: 2px; background: linear-gradient(var(--c3), var(--c2));
     transform: scaleY(.12); transition: transform .08s linear; }
   .orbw { position: relative; width: min(34vw, 150px); aspect-ratio: 1; flex: none; }
@@ -61,12 +62,13 @@
   body[data-s="listen"] .ring, body[data-s="speak"] .ring { animation: ripple 2.4s ease-out infinite; }
   body[data-s="listen"] .r2, body[data-s="speak"] .r2 { animation-delay: 1.2s; }
   @keyframes ripple { 0% { transform: scale(1); opacity: .55; } 100% { transform: scale(1.75); opacity: 0; } }
-  .orb svg { position: absolute; inset: 0; margin: auto; width: 34%; height: 34%; z-index: 2; fill: none; stroke: #fff;
-    stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 6px #0006); }
+  .orb svg { display: none; }
+  .orb::after { content: "JARVIS"; position: absolute; inset: 0; display: grid; place-items: center; z-index: 2; font-weight: 300;
+    letter-spacing: .2em; padding-left: .2em; font-size: clamp(.8rem, 4.6vw, 1.35rem); color: #fff; text-shadow: 0 0 14px var(--c3); }
   .orb { position: relative; width: 100%; aspect-ratio: 1; border: 0; padding: 0; border-radius: 50%;
     overflow: hidden; background: #0c0e17; transform: scale(calc(1 + var(--l) * .28));
     transition: transform .08s linear, box-shadow .6s; box-shadow: 0 0 60px -8px var(--c1); }
-  .orb i { position: absolute; width: 85%; height: 85%; border-radius: 50%; filter: blur(22px);
+  .orb i { position: absolute; width: 85%; height: 85%; border-radius: 50%; filter: blur(18px);
     mix-blend-mode: screen; transition: background .8s; animation: flow 8s ease-in-out infinite; }
   .orb i:nth-child(1) { background: var(--c1); top: -15%; left: -15%; }
   .orb i:nth-child(2) { background: var(--c2); bottom: -15%; right: -15%; animation-duration: 10s; animation-delay: -3s; }
@@ -95,17 +97,17 @@
     padding: .8rem; border-radius: 999px; border: 1px solid var(--line); background: var(--btn); }
   .btns svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   #end { color: #ff5a5a; }
+  .btns { gap: .4rem; } .btns button { min-width: 0; padding: .8rem .3rem; gap: .3rem; font-size: .9rem; }
   .hr { display: flex; gap: .1rem; }
   .hr .ib { width: 36px; height: 36px; }
   .vmbar { display: none; justify-content: space-between; padding: .7rem 1rem; }
   .vmbar .ib, .hr .ib { background: var(--btn); }
-  body.vm header, body.vm #chat, body.vm .bars, body.vm .dots, body.vm .tf, body.vm #kb, body.vm #st, body.vm .orb svg { display: none !important; }
+  body.vm header, body.vm #chat, body.vm .bars, body.vm .dots, body.vm .tf, body.vm #kb, body.vm #st, body.vm .slot { display: none !important; }
   body.vm #st.bad { display: block !important; }
   body.vm .vmbar { display: flex; }
-  body.vm .stage { flex: 1; padding: 0; }
-  body.vm .orbw { width: min(62vw, 260px); }
-  #sheet, #lock, #mailsheet { position: fixed; inset: 0; background: #0008; display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
-  #sheet[hidden], #lock[hidden], #mailsheet[hidden] { display: none; }
+  body.vm .hud { flex: 1; grid-template-rows: 0 minmax(0, 1fr) 0; }
+  #sheet, #lock { position: fixed; inset: 0; background: #0008; display: flex; align-items: flex-end; justify-content: center; z-index: 20; }
+  #sheet[hidden], #lock[hidden] { display: none; }
   #lock { z-index: 60; align-items: center; background: #000c; }
   #lock .card { border-radius: 22px; margin: 1rem; width: calc(100% - 2rem); }
   .mi { border: 1px solid var(--line); border-radius: 14px; padding: .7rem; display: flex; flex-direction: column; gap: .35rem; }
@@ -123,13 +125,70 @@
   .seg { display: flex; gap: .5rem; }
   #vmsg { font-size: .85rem; color: var(--muted); min-height: 1.2em; }
   .help { font-size: .8rem; color: var(--muted); line-height: 1.4; margin: 0; }
+
+  /* ---------- Jarvis HUD ---------- */
+  #chat { flex: 0 0 auto; max-height: 21vh; mask-image: linear-gradient(transparent, #000 18%); }
+  #chat:empty { display: none; }
+  .hud { flex: 1; min-height: 0; display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 92px minmax(0, 1fr) 92px; gap: .55rem; padding: 0 .8rem .3rem; }
+  .slot { position: relative; min-width: 0; min-height: 0; }
+  .slot[data-i="0"] { grid-column: 1; grid-row: 1; } .slot[data-i="1"] { grid-column: 2; grid-row: 1; }
+  .slot[data-i="2"] { grid-column: 1; grid-row: 3; } .slot.wave { grid-column: 2; grid-row: 3; }
+  .core { grid-column: 1 / 3; grid-row: 2; position: relative; display: grid; place-items: center; min-height: 0; }
+  .ringbox { position: relative; height: 100%; max-height: 330px; max-width: 100%; aspect-ratio: 1; }
+  .ringbox .orbw { position: absolute; inset: 21%; width: auto; }
+  .hudring { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; filter: drop-shadow(0 0 5px var(--c1)); }
+  .hudring circle { fill: none; stroke: var(--c3); stroke-linecap: round; }
+  .hudring .sp { transform-box: view-box; transform-origin: 50% 50%; animation: sp 30s linear infinite; }
+  .hudring .sp.rv { animation-duration: 19s; animation-direction: reverse; }
+  .hudring .sp.fs { animation-duration: 44s; }
+  body[data-s="listen"] .hudring .sp, body[data-s="speak"] .hudring .sp { animation-duration: 9s; }
+  body[data-s="think"] .hudring .sp { animation-duration: 3.5s; }
+  @keyframes sp { to { transform: rotate(360deg); } }
+  .glass { border-radius: 16px; border: 1px solid color-mix(in srgb, var(--c3) 55%, transparent);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--c2) 40%, transparent), #0007);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    box-shadow: 0 0 22px -8px var(--c1), inset 0 0 18px -10px var(--c3); }
+  .tile { width: 100%; height: 100%; padding: .5rem .65rem; display: flex; flex-direction: column; gap: .2rem; text-align: left;
+    color: var(--fg); overflow: hidden; animation: fl 6s ease-in-out infinite; }
+  .slot[data-i="0"] .tile, .slot[data-i="2"] .tile { transform: perspective(600px) rotateY(9deg); }
+  .slot[data-i="1"] .tile { transform: perspective(600px) rotateY(-9deg); animation-delay: -2s; }
+  @keyframes fl { 50% { translate: 0 -3px; } }
+  .tile .tr { display: flex; align-items: center; gap: .4rem; font-size: .66rem; letter-spacing: .14em; color: var(--c3); }
+  .tile .tr svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .tile .tr em { margin-left: auto; font-style: normal; background: var(--c1); color: #fff; border-radius: 999px; padding: 0 .4rem; letter-spacing: 0; }
+  .tile .dot { width: 7px; height: 7px; margin-left: auto; border-radius: 50%; background: var(--c3); box-shadow: 0 0 8px var(--c3); }
+  .tile b { font-size: .84rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile span.sj { font-size: .74rem; color: var(--muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.3; }
+  .tile.empty { opacity: .45; pointer-events: none; animation: none; }
+  .tile.empty i { height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--c3) 35%, transparent); margin-top: .35rem; }
+  .tile.empty i:nth-child(3) { width: 60%; }
+  .slot.wave .glass { height: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: .5rem; transform: perspective(600px) rotateY(-9deg); }
+  .slot.wave .bars { height: 62%; flex: 1; gap: 2px; }
+  .slot.wave .bars b { width: 3px; }
+  #veil { position: fixed; inset: 0; z-index: 30; background: #000b; backdrop-filter: blur(3px); opacity: 0; transition: opacity .3s; }
+  #veil.on { opacity: 1; }
+  .zc { position: fixed; z-index: 31; overflow: hidden; display: flex; flex-direction: column; gap: .5rem; padding: .7rem .85rem; color: var(--fg);
+    background: linear-gradient(160deg, #0f2f78f2, #040d24f5); box-shadow: 0 0 40px -6px var(--c1), inset 0 0 22px -10px var(--c3);
+    transition: left .38s cubic-bezier(.2,.8,.2,1), top .38s cubic-bezier(.2,.8,.2,1), width .38s cubic-bezier(.2,.8,.2,1), height .38s cubic-bezier(.2,.8,.2,1); }
+  .zc .zh { display: flex; align-items: center; gap: .5rem; color: var(--c3); font-size: .7rem; letter-spacing: .14em; flex: none; }
+  .zc .zh svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .zc .zx { margin-left: auto; width: 34px; height: 34px; border: 1px solid var(--line); border-radius: 50%; background: #0006; color: var(--fg); font-size: 1.1rem; line-height: 1; }
+  .zc .zb { flex: 1; overflow: auto; opacity: 0; transition: opacity .25s .12s; display: flex; flex-direction: column; gap: .55rem; overflow-wrap: anywhere; }
+  .zc.open .zb { opacity: 1; }
+  .zc .zb h4 { margin: 0; font-size: 1.02rem; }
+  .zc .zb p { margin: 0; line-height: 1.5; white-space: pre-wrap; }
+  .zc .zb input { width: 100%; border: 1px solid var(--line); background: var(--btn); color: var(--fg); border-radius: 12px; padding: .65rem .8rem; font: inherit; }
+  .zc .zb button { border: 1px solid var(--line); background: var(--btn); border-radius: 12px; padding: .65rem .9rem; color: var(--fg); }
+  .zc .zb button.pri { background: var(--c2); border: 0; color: #fff; }
+  .zc .zrow { display: flex; gap: .5rem; flex-wrap: wrap; } .zc .zrow button { flex: 1; }
+  @media (prefers-reduced-motion: reduce) { .tile, .hudring .sp { animation: none !important; } .zc { transition-duration: .01s; } }
 </style>
 </head>
 <body data-s="idle">
   <header>
     <button class="ib" id="new" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
     <div class="hd"><i class="av big"></i><div class="title"><b>Jarvis</b><span>Always here to help…</span></div></div>
-    <div class="hr"><button class="ib" id="heart" aria-label="Body scan"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></button><button class="ib" id="eye" aria-label="Vision mode"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+    <div class="hr"><button class="ib" id="heart" aria-label="Body scan"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></button><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </header>
   <div class="vmbar">
     <button class="ib" id="vback" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>
@@ -138,14 +197,24 @@
 
   <div id="chat" aria-live="polite"></div>
 
-  <div class="stage">
-    <div class="bars" aria-hidden="true"></div>
-    <div class="orbw"><span class="ring"></span><span class="ring r2"></span>
-      <button class="orb" id="orb" aria-label="Tap to talk"><i></i><i></i><i></i>
-        <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
-      </button></div>
-    <div class="bars" aria-hidden="true"></div>
-  </div>
+  <main class="hud" id="hud">
+    <div class="slot" data-i="0"></div>
+    <div class="slot" data-i="1"></div>
+    <div class="core"><div class="ringbox">
+      <svg class="hudring" viewBox="0 0 200 200" aria-hidden="true">
+        <g class="sp"><circle cx="100" cy="100" r="98" stroke-width="1.4" stroke-dasharray="70 14 150 22 40 18"/></g>
+        <g class="sp rv"><circle cx="100" cy="100" r="90" stroke-width="5" stroke-dasharray="64 30 22 40 110 26"/></g>
+        <circle cx="100" cy="100" r="80" stroke-width="1" stroke-dasharray="1 5" opacity=".7"/>
+        <g class="sp fs"><circle cx="100" cy="100" r="74" stroke-width="2.5" stroke-dasharray="40 60 18 90" opacity=".85"/></g>
+      </svg>
+      <div class="orbw"><span class="ring"></span><span class="ring r2"></span>
+        <button class="orb" id="orb" aria-label="Tap to talk"><i></i><i></i><i></i>
+          <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
+        </button></div>
+    </div></div>
+    <div class="slot" data-i="2"></div>
+    <div class="slot wave"><div class="glass"><div class="bars" aria-hidden="true"></div><div class="bars" aria-hidden="true"></div></div></div>
+  </main>
   <p id="st">Tap the orb to start talking</p>
   <div class="dots" aria-hidden="true"><b></b><b></b><b></b></div>
 
@@ -198,18 +267,6 @@
     </form>
   </div>
 
-  <div id="mailsheet" hidden>
-    <div class="card">
-      <h3>Email</h3>
-      <p class="help">Replies are saved as drafts first. Nothing is sent until you tap Send now.</p>
-      <input id="mnote" placeholder="What should replies say? (optional)" autocomplete="off">
-      <div id="mmsg" class="help"></div>
-      <div id="mlist" style="display:flex;flex-direction:column;gap:.6rem"></div>
-      <div class="seg"><button id="mrefresh">Refresh</button><button class="pri" id="mclose">Done</button></div>
-    </div>
-  </div>
-
-<script src="/skin.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const player = $("#a"), chat = $("#chat");
@@ -468,7 +525,7 @@ function tick() {
         if (!speechStart) { speechStart = now; clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips(); }
         lastVoice = now;
       }
-      else if (speechStart && now - lastVoice > (window.Vision && Vision.isOpen() ? 700 : 900)) finish();
+      else if (speechStart && now - lastVoice > 900) finish();
       else if (!speechStart && !held && !nudged && !fxPlaying && now - listenSince > 14000) {   // long silence: say we are still here
         nudged = true; const nd = pickFrom("nudge", true); if (nd) playClip(nd.audio);
       }
@@ -588,7 +645,7 @@ async function post(url, body, retried) {
   return d;
 }
 
-const visionUi = () => (window.Vision && Vision.isOpen && Vision.isOpen()) ? "vision" : "";
+const visionUi = () => "";
 const langName = () => (LANGS.find(l => l[0] === lang) || [])[1] || "";
 function fail(e) {
   fillerArmed = false;
@@ -604,7 +661,7 @@ async function transcribe(my, audio) {
     const heard = String(d.user || "").trim();
     if (!heard) { if (held) respond(my, held); else listen(); return; }
     const full = (held ? held + " " : "") + heard;
-    if ((window.Skin && window.Skin.command(full)) || (window.jvCommand && window.jvCommand(full))) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
+    if (window.jvCommand && window.jvCommand(full)) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
       dropHeld(); bubble("u", full); if (on && !paused) listen(); return;
     }
     if (holds < 2 && incomplete(full)) {        // still thinking out loud: keep listening and join the next part
@@ -704,13 +761,6 @@ window.jvSpeak = async text => {                 // speak any sentence (used by 
 };
 window.jvConfirm = () => { if (!on || paused) return; const c = pickFrom("done", true); if (c) playClip(c.audio); };   // short "Done." from the phone, no waiting
 window.jvSend = text => { dropHeld(); const my = ++turn; answer(my, text, ""); };
-$("#eye").onclick = () => {
-  primeAudio(); try { initAudio(); ctx.resume(); } catch (e) {}
-  if (window.Vision) return Vision.open();
-  const s = document.createElement("script"); s.src = "/vision.js";
-  s.onload = () => Vision.open(); s.onerror = () => set("idle", "Error: Vision could not load.");
-  document.head.append(s);
-};
 function vmOff() { document.body.classList.remove("vm"); }
 $("#vmb").onclick = async () => { document.body.classList.add("vm"); if (!on) await begin(); };
 $("#vback").onclick = () => { end(); vmOff(); };
@@ -768,44 +818,124 @@ $("#gconn").onclick = async () => {
   try { const d = await post("/api/mail", { action: "link" }); location.href = d.url; }
   catch (e) { $("#vmsg").textContent = e.message; }
 };
-function mailItem(m) {
-  const w = document.createElement("div"); w.className = "mi";
-  const f = document.createElement("b"); f.textContent = m.from;
-  const sub = document.createElement("div"); sub.textContent = m.subject;
-  const p = document.createElement("p"); p.className = "help"; p.textContent = m.snippet;
-  const out = document.createElement("div"); out.className = "help"; out.style.whiteSpace = "pre-wrap";
-  const b = document.createElement("button"); b.textContent = "Draft reply";
-  b.onclick = async () => {
-    b.disabled = true; out.textContent = "Writing…";
-    try {
-      const d = await post("/api/mail", { action: "draft", id: m.id, note: $("#mnote").value.trim() });
-      out.textContent = "Saved to Gmail Drafts:\n\n" + d.body + "\n\n";
-      const sb = document.createElement("button"); sb.textContent = "Send now";
-      sb.onclick = async () => {
-        if (!confirm("Send this reply to " + d.to + "?")) return;
-        sb.disabled = true;
-        try { await post("/api/mail", { action: "send", id: d.id }); out.textContent = "Sent to " + d.to + "."; w.querySelector("button").remove(); }
-        catch (e) { out.textContent = e.message; sb.disabled = false; }
-      };
-      out.append(sb);
-    }
-    catch (e) { out.textContent = e.message; }
-    b.disabled = false;
+/* ---------- floating message & alert panels: tap one to zoom in, tap close to send it back ---------- */
+const Pop = (() => {
+  const ICON = {
+    mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
+    alert: '<svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg>'
   };
-  w.append(f, sub, p, b, out); return w;
-}
-async function loadMail() {
-  const box = $("#mlist"); box.replaceChildren(); $("#mmsg").textContent = "Checking inbox…";
+  const slots = [...document.querySelectorAll(".slot[data-i]")];
+  let items = [], zoom = null, pending = false;
+  const gone = new Set();                                   // dismissed this session
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const icon = k => { const s = el("span"); s.innerHTML = ICON[k] || ICON.alert; return s.firstChild; };
+  const place = (n, r) => { n.style.left = r.left + "px"; n.style.top = r.top + "px"; n.style.width = r.width + "px"; n.style.height = r.height + "px"; };
+
+  function tile(it, more) {
+    const b = el("button", "tile glass" + (it ? "" : " empty"));
+    if (!it) { b.disabled = true; b.append(el("i"), el("i"), el("i")); return b; }
+    const tr = el("div", "tr"); tr.append(icon(it.kind), el("span", "", it.kind === "mail" ? "MAIL" : "ALERT"));
+    if (more > 0) tr.append(el("em", "", "+" + more)); else tr.append(el("span", "dot"));
+    b.append(tr, el("b", "", it.title), el("span", "sj", it.sub || ""));
+    b.onclick = () => open(it, b);
+    return b;
+  }
+  function draw() {
+    if (zoom) { pending = true; return; }
+    slots.forEach((s, i) => s.replaceChildren(tile(items[i], i === slots.length - 1 ? items.length - slots.length : 0)));
+  }
+  function open(it, tileEl) {
+    if (zoom) return;
+    const r = tileEl.getBoundingClientRect();
+    const veil = el("div"); veil.id = "veil"; veil.onclick = () => close();
+    const c = el("div", "zc glass"); place(c, r);
+    const head = el("div", "zh"); head.append(icon(it.kind), el("span", "", it.kind === "mail" ? "MAIL" : "ALERT"));
+    const x = el("button", "zx", "×"); x.setAttribute("aria-label", "Close"); x.onclick = () => close(); head.append(x);
+    const body = el("div", "zb");
+    if (it.render) it.render(body, { close, dismiss: () => close(true) });
+    else {
+      body.append(el("h4", "", it.title), el("p", "", it.text || it.sub || ""));
+      if (it.actions || true) {
+        const row = el("div", "zrow");
+        (it.actions || []).forEach(a => { const ab = el("button", "pri", a.label); ab.onclick = () => { close(); a.fn(); }; row.append(ab); });
+        const d = el("button", "", "Dismiss"); d.onclick = () => close(true); row.append(d); body.append(row);
+      }
+    }
+    c.append(head, body); document.body.append(veil, c);
+    tileEl.style.visibility = "hidden"; zoom = { it, tileEl, c, veil };
+    c.getBoundingClientRect();                                // lock in the start size, then grow
+    const W = Math.min(innerWidth - 24, 480), H = Math.min(innerHeight * .55, 460);
+    place(c, { left: (innerWidth - W) / 2, top: Math.max(56, (innerHeight - H) / 2), width: W, height: H });
+    veil.classList.add("on"); c.classList.add("open");
+  }
+  function close(remove) {
+    if (!zoom) return; const z = zoom; zoom = null;
+    z.c.classList.remove("open"); z.veil.classList.remove("on");
+    place(z.c, z.tileEl.getBoundingClientRect());             // shrink back to where it was
+    setTimeout(() => {
+      z.c.remove(); z.veil.remove(); z.tileEl.style.visibility = "";
+      if (remove) { gone.add(z.it.id); items = items.filter(i => i !== z.it); pending = true; }
+      if (pending) { pending = false; draw(); }
+    }, 400);
+  }
+  addEventListener("keydown", e => { if (e.key === "Escape") close(); });
+
+  function mailBody(m) {
+    return (body, h) => {
+      const note = el("input"); note.placeholder = "What should the reply say? (optional)"; note.autocomplete = "off";
+      const out = el("p", "help"); const row = el("div", "zrow");
+      const db = el("button", "pri", "Draft reply"), dm = el("button", "", "Dismiss"); dm.onclick = () => h.dismiss();
+      db.onclick = async () => {
+        db.disabled = true; out.textContent = "Writing…";
+        try {
+          const d = await post("/api/mail", { action: "draft", id: m.id, note: note.value.trim() });
+          out.textContent = "Saved to Gmail Drafts:\n\n" + d.body + "\n\n";
+          const sb = el("button", "pri", "Send now");
+          sb.onclick = async () => {
+            if (!confirm("Send this reply to " + d.to + "?")) return;
+            sb.disabled = true;
+            try { await post("/api/mail", { action: "send", id: d.id }); out.textContent = "Sent to " + d.to + "."; db.remove(); sb.remove(); }
+            catch (e) { out.textContent = e.message; sb.disabled = false; }
+          };
+          out.append(sb);
+        } catch (e) { out.textContent = e.message; }
+        db.disabled = false;
+      };
+      row.append(db, dm);
+      body.append(el("h4", "", m.from), el("p", "", m.subject), el("p", "help", m.snippet), note, row, out);
+    };
+  }
+  const kindOf = k => items.filter(i => i.kind === k);
+  return {
+    setMail(list) {
+      const mails = list.filter(m => !gone.has("m" + m.id)).map(m => ({ id: "m" + m.id, kind: "mail",
+        title: (m.from || "").replace(/<.*>/, "").trim() || m.from, sub: m.subject, render: mailBody(m) }));
+      items = [...items.filter(i => i.kind !== "mail"), ...mails]; draw();
+    },
+    alert(a) {                                                // { id, title, text, actions:[{label, fn}] }
+      const id = "a" + (a.id || Date.now());
+      if (gone.has(id)) return;
+      items = [{ id, kind: "alert", title: a.title, sub: a.text, text: a.text, actions: a.actions }, ...items.filter(i => i.id !== id)]; draw();
+    },
+    clearAlert(id) { items = items.filter(i => i.id !== "a" + id); draw(); }
+  };
+})();
+window.jvAlert = (title, text, actions) => Pop.alert({ title, text, actions });
+Pop.setMail([]);
+
+async function refreshMail(manual) {
+  if (!token && !manual) return;
   try {
     const d = await post("/api/mail", { action: "inbox" });
-    $("#mmsg").textContent = d.emails.length ? "" : "No unread emails.";
-    d.emails.forEach(m => box.append(mailItem(m)));
-  } catch (e) { $("#mmsg").textContent = e.message; }
+    Pop.clearAlert("mailerr"); Pop.setMail(d.emails);
+    if (manual && !d.emails.length) Pop.alert({ id: "inbox", title: "Inbox clear", text: "No unread emails right now." });
+  } catch (e) {
+    if (manual) Pop.alert({ id: "mailerr", title: "Email", text: e.message, actions: [{ label: "Open settings", fn: () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; } }] });
+  }
 }
-$("#mailb").onclick = () => { $("#mailsheet").hidden = false; loadMail(); };
-$("#mrefresh").onclick = loadMail;
-$("#mclose").onclick = () => $("#mailsheet").hidden = true;
-$("#mailsheet").onclick = e => { if (e.target.id === "mailsheet") e.target.hidden = true; };
+$("#mailb").onclick = () => refreshMail(true);
+setTimeout(refreshMail, 2500);
+setInterval(() => { if (!document.hidden) refreshMail(); }, 120000);
 </script>
 </body>
   </html>
