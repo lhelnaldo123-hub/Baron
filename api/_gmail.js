@@ -51,6 +51,18 @@ async function inbox(n = 5) {
   return out;
 }
 
+async function unreadSince(seconds, n = 5) {
+  const after = Math.floor(Date.now() / 1000) - Math.max(60, Math.floor(seconds));
+  const q = encodeURIComponent(`is:unread in:inbox -category:promotions -category:social after:${after}`);
+  const list = await gmail(`messages?maxResults=${Math.min(10, n)}&q=${q}`);
+  const out = [];
+  for (const m of list.messages || []) {
+    const d = await gmail(`messages/${m.id}?format=metadata&metadataHeaders=From&metadataHeaders=Subject`);
+    out.push({ id: m.id, from: header(d, "From"), subject: header(d, "Subject") || "(no subject)", snippet: String(d.snippet || "").slice(0, 160) });
+  }
+  return out;
+}
+
 const b64 = s => Buffer.from(s, "base64url").toString("utf8");
 function findPart(p, type) {
   if (!p) return "";
@@ -129,4 +141,4 @@ async function sendDraft(id) {
   return gmail("drafts/send", { method: "POST", body: JSON.stringify({ id: String(id) }) });
 }
 
-module.exports = { configured, inbox, draftReply, sendDraft, rawMessage };
+module.exports = { configured, inbox, unreadSince, draftReply, sendDraft, rawMessage };
