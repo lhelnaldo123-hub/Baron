@@ -1,5 +1,5 @@
 // Lets Jarvis message you first on Telegram.
-//   mode=morning  -> a good-morning message with your unread mail (run once a day)
+//   mode=morning | afternoon | evening -> a time-of-day message with your unread mail (one cron each)
 //   mode=check    -> tells you about NEW emails (run every ~15 minutes, pass mins=15)
 // Protected by CRON_SECRET: send it as ?key=... or as "Authorization: Bearer ..." (Vercel cron does this itself).
 const crypto = require("crypto");
@@ -30,12 +30,18 @@ module.exports = async (req, res) => {
 
   try {
     const mode = String((req.query && req.query.mode) || "check");
-    if (mode === "morning") {
-      let text = "Good morning, boss.";
+    if (mode === "morning" || mode === "afternoon" || mode === "evening") {
+      const hello = { morning: "Good morning, boss.", afternoon: "Good afternoon, boss.", evening: "Good evening, boss." }[mode];
+      const ask = {
+        morning: "Write a short, warm good-morning message for me in 2 sentences, with one small useful tip for the day.",
+        afternoon: "Write a short, warm afternoon check-in for me in 2 sentences, with one small tip to stay focused or take a break.",
+        evening: "Write a short, warm evening message for me in 2 sentences, helping me wind down and wrap up the day.",
+      }[mode];
+      let text = hello;
       try {
-        const { reply } = await brain.think("Write a short, warm good-morning message for me in 2 sentences, with one small useful tip for the day. No greeting word like 'Good morning' at the start.");
+        const { reply } = await brain.think(ask + " Do not start with a greeting word like 'Good morning', 'Good afternoon' or 'Good evening'.");
         text += " " + reply;
-      } catch (e) { text += " Here is to a good day."; }
+      } catch (e) { text += mode === "evening" ? " Time to rest." : " Here is to a good day."; }
       if (mail.configured()) {
         try {
           const list = await mail.inbox(5);
