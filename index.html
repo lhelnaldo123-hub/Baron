@@ -307,17 +307,11 @@ function stopRec() {
 }
 
 /* ---------- natural conversation: short spoken reactions ("Mm-hm", "Okay, I'm listening", "Let's see...") ---------- */
-const ACKS = {
-  early:  ["Mm-hm.", "Okay.", "Right.", "I see.", "Okay, okay."],
-  listen: ["Mm-hm, I'm listening.", "Okay... I'm listening.", "Go on, I'm listening.", "Take your time, I'm listening."],
-  wait:   ["Let me think.", "Hmm, let's see.", "Just a second.", "Let's see..."],
-  ok:     ["Mm-hm.", "Aha.", "Okay.", "Right.", "I see.", "Okay, got it."],
-  ask:    ["Good question.", "Hmm, let me think.", "Okay, one moment.", "Sure."],
-  task:   ["Sure thing.", "Alright.", "Okay, on it."],
-  wait2:  ["Almost there.", "Just a little more.", "Okay, nearly done.", "Thanks for waiting."],
-  nudge:  ["I'm still here. Take your time.", "Okay, I'm listening whenever you're ready."],
-  good:   ["Oh nice!", "That's great!", "Oh wow, nice."],
-  sad:    ["Aww.", "Oh no.", "Hmm, I'm sorry to hear that."]
+const ACKS = {   // only a few short lines now. No more "Mm-hm" / "Hmm" while you talk. Add kinds back here if you miss them.
+  wait:   ["Let me think.", "One moment.", "Let's see..."],
+  wait2:  ["Almost there.", "Just a little more.", "Nearly done."],
+  nudge:  ["I'm still here. Take your time.", "I'm listening whenever you're ready."],
+  done:   ["Done.", "Okay.", "On it.", "Got it."]
 };
 let held = "", holds = 0, holdT = null, bcT = null, lastAck = "", early = false, fxP = null, fxPlaying = false, stopFn = null;
 let clipN = 0, clipGen = 0, lastClipEnd = 0, fillerArmed = false, fillN = 0, nextFill = 0, listenSince = 0, nudged = false, lastT = 0;
@@ -389,7 +383,7 @@ function classify(text) {
   return words >= 4 ? "ok" : "";
 }
 /* did you stop mid-thought? ("and", "but", "so", "um", "emm...", a comma...) */
-const HANG = ["and", "but", "so", "because", "or", "the", "a", "an", "to", "of", "with", "for", "in", "on", "at", "that", "if", "when", "my", "your", "um", "uh", "umm", "uhh", "hmm", "like", "then", "also", "i'm", "it's", "why", "about", "from", "than", "which"];
+const HANG = ["and", "but", "so", "because", "or", "the", "a", "an", "to", "of", "with", "that", "if", "when", "my", "your", "um", "uh", "umm", "uhh", "hmm", "i'm", "it's", "than", "which"];
 function incomplete(t) {
   t = t.trim(); if (!t) return false;
   if (/(\.\.\.|…|[,;:\-–—])\s*$/.test(t)) return true;
@@ -452,7 +446,7 @@ function finish() {
     if (spoke < 400) return listen();
     const my = ++turn; early = false;
     if (spoke > 1500) { const ea = pickFrom("early"); if (ea) { early = true; playClip(ea.audio); } }   // react at once, transcribing takes a moment
-    armFiller(early ? 2800 : 2200);
+    armFiller(3500);
     sendBlob(new Blob(chunks, { type: rec.mimeType }), my);
   };
   set("think", "Thinking…");
@@ -473,7 +467,7 @@ function tick() {
         if (!speechStart) { speechStart = now; clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips(); }
         lastVoice = now;
       }
-      else if (speechStart && now - lastVoice > 900) finish();
+      else if (speechStart && now - lastVoice > (window.Vision && Vision.isOpen() ? 700 : 900)) finish();
       else if (!speechStart && !held && !nudged && !fxPlaying && now - listenSince > 14000) {   // long silence: say we are still here
         nudged = true; const nd = pickFrom("nudge", true); if (nd) playClip(nd.audio);
       }
@@ -593,6 +587,7 @@ async function post(url, body, retried) {
   return d;
 }
 
+const visionUi = () => (window.Vision && Vision.isOpen && Vision.isOpen()) ? "vision" : "";
 const langName = () => (LANGS.find(l => l[0] === lang) || [])[1] || "";
 function fail(e) {
   fillerArmed = false;
@@ -603,11 +598,14 @@ function fail(e) {
 /* step 1: your voice into words, and decide if you are really finished */
 async function transcribe(my, audio) {
   try {
-    const d = await post("/api/voice", { audio, ext, lang, langName: langName(), sttOnly: true });
+    const d = await post("/api/voice", { audio, ext, lang, langName: langName(), sttOnly: true, ui: visionUi() });
     if (my !== turn) return;
     const heard = String(d.user || "").trim();
     if (!heard) { if (held) respond(my, held); else listen(); return; }
     const full = (held ? held + " " : "") + heard;
+    if (window.jvCommand && window.jvCommand(full)) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
+      dropHeld(); bubble("u", full); if (on && !paused) listen(); return;
+    }
     if (holds < 2 && incomplete(full)) {        // still thinking out loud: keep listening and join the next part
       held = full; holds++; listen(); armHold(); armBC(); return;
     }
@@ -619,7 +617,7 @@ function respond(my, text) {
   dropHeld();
   const ack = early ? null : pickFrom(classify(text));
   if (ack) playClip(ack.audio);
-  armFiller(ack || early ? 2600 : 1500);
+  armFiller(3500);
   answer(my, text, ack ? ack.text : "");
 }
 
@@ -627,9 +625,10 @@ async function answer(my, text, ackText, typed) {
   const wait = bubble("a", "", null, true);
   bubble("u", text, wait);
   try {
-    const spoken = document.body.classList.contains("vm");     // voice screen: short spoken answer, faster
-    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText });
+    const spoken = document.body.classList.contains("vm") || !!visionUi();     // voice or vision screen: short spoken answer, faster
+    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText, ui: visionUi() });
     fillerArmed = false;
+    if (d.actions && d.actions.length && window.jvActions) window.jvActions(d.actions);
     if (!d.reply) { wait.remove(); if (my === turn && on && !paused) listen(); return; }
     bubble("a", d.reply, wait); wait.remove();
     history.push({ role: "user", content: text }, { role: "assistant", content: spoken ? d.reply : d.reply + "\nSAY: " + d.say });
@@ -694,9 +693,18 @@ window.jvSay = async text => {
   if (typeof on !== "undefined" && on) return;
   try { const v = await post("/api/speak", { text, voice }); player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); } catch (e) {}
 };
+window.jvSpeak = async text => {                 // speak any sentence (used by the vision screen)
+  text = String(text || "").trim(); if (!text) return;
+  try {
+    const v = await post("/api/speak", { text: text.slice(0, 500), voice });
+    if (on && !paused) playClip(v.audio);
+    else { initAudio(); player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); }
+  } catch (e) {}
+};
+window.jvConfirm = () => { if (!on || paused) return; const c = pickFrom("done", true); if (c) playClip(c.audio); };   // short "Done." from the phone, no waiting
 window.jvSend = text => { dropHeld(); const my = ++turn; answer(my, text, ""); };
 $("#eye").onclick = () => {
-  primeAudio();
+  primeAudio(); try { initAudio(); ctx.resume(); } catch (e) {}
   if (window.Vision) return Vision.open();
   const s = document.createElement("script"); s.src = "/vision.js";
   s.onload = () => Vision.open(); s.onerror = () => set("idle", "Error: Vision could not load.");
