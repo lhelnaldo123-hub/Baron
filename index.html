@@ -123,7 +123,7 @@
   <header>
     <button class="ib" id="new" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
     <div class="hd"><i class="av big"></i><div class="title"><b>Jarvis</b><span>Always here to help…</span></div></div>
-    <div class="hr"><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+    <div class="hr"><button class="ib" id="eye" aria-label="Vision mode"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </header>
   <div class="vmbar">
     <button class="ib" id="vback" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>
@@ -163,8 +163,6 @@
       <select id="lsel" aria-label="Choose language"></select>
       <label>Voice</label>
       <select id="vsel" aria-label="Choose voice"></select>
-      <label>Voice volume: <span id="volv"></span></label>
-      <input type="range" id="vvol" min="50" max="300" step="10" aria-label="Voice volume">
       <div class="seg"><button id="vtest">Test voice</button><button id="vdel">Remove</button></div>
       <label>Add a voice</label>
       <input id="vname" placeholder="Name (for example Sarah)" autocomplete="off">
@@ -232,39 +230,20 @@ function bubble(role, text, before, pending) {
   return el;
 }
 
-let auto = 1, gainNode = null, vol = parseInt((() => { try { return localStorage.getItem("jv-vol"); } catch (e) { return ""; } })(), 10) || 100;
-const applyVol = () => { if (gainNode) gainNode.gain.value = vol / 100 * auto; };
-function levelOf(b64) {                   // how much to lift or lower this clip so every voice sounds equally loud
-  if (!ctx || !gainNode) return Promise.resolve(1);
-  try {
-    var bin = atob(b64), u = new Uint8Array(bin.length);
-    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
-    return ctx.decodeAudioData(u.buffer).then(function (buf) {
-      var d = buf.getChannelData(0), n = d.length, step = Math.max(1, Math.floor(n / 20000)), sum = 0, c = 0;
-      for (var k = 0; k < n; k += step) { sum += d[k] * d[k]; c++; }
-      var rms = Math.sqrt(sum / (c || 1));
-      return rms > 0.001 ? Math.max(0.5, Math.min(4, 0.12 / rms)) : 1;
-    }).catch(function () { return 1; });
-  } catch (e) { return Promise.resolve(1); }
-}
-function initAudio() {                      // voice goes: player -> (meter) -> volume -> limiter -> speaker
-  if (ctx) return;
-  ctx = new (window.AudioContext || window.webkitAudioContext)();
-  outAn = ctx.createAnalyser(); outAn.fftSize = 1024;
-  ctx.createMediaElementSource(player).connect(outAn);
-  gainNode = ctx.createGain(); applyVol();
-  const lim = ctx.createDynamicsCompressor();
-  outAn.connect(gainNode); gainNode.connect(lim); lim.connect(ctx.destination);
-}
 async function begin() {
   try {
-    initAudio();
+    if (!ctx) {
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      outAn = ctx.createAnalyser(); outAn.fftSize = 1024;
+      ctx.createMediaElementSource(player).connect(outAn);
+      outAn.connect(ctx.destination);
+    }
     await ctx.resume();
     player.src = SILENCE; player.play().catch(() => {}); // unlocks audio on iPhone
     stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
     micAn = ctx.createAnalyser(); micAn.fftSize = 1024;
     ctx.createMediaStreamSource(stream).connect(micAn);
-    on = true; paused = false; lastT = performance.now(); ensureFx(); listen(); tick();
+    on = true; paused = false; listen(); tick();
   } catch (e) {
     set("idle", "Microphone blocked. Allow mic access and tap again.");
   }
@@ -274,118 +253,8 @@ function stopRec() {
   try { if (rec && rec.state !== "inactive") { rec.onstop = null; rec.stop(); } } catch (e) {}
 }
 
-/* ---------- natural conversation: short spoken reactions ("Mm-hm", "Okay, I'm listening", "Let's see...") ---------- */
-const ACKS = {
-  early:  ["Mm-hm.", "Okay.", "Right.", "I see.", "Okay, okay."],
-  listen: ["Mm-hm, I'm listening.", "Okay... I'm listening.", "Go on, I'm listening.", "Take your time, I'm listening."],
-  wait:   ["Let me think.", "Hmm, let's see.", "Just a second.", "Let's see..."],
-  ok:     ["Mm-hm.", "Aha.", "Okay.", "Right.", "I see.", "Okay, got it."],
-  ask:    ["Good question.", "Hmm, let me think.", "Okay, one moment.", "Sure."],
-  task:   ["Sure thing.", "Alright.", "Okay, on it."],
-  wait2:  ["Almost there.", "Just a little more.", "Okay, nearly done.", "Thanks for waiting."],
-  nudge:  ["I'm still here. Take your time.", "Okay, I'm listening whenever you're ready."],
-  good:   ["Oh nice!", "That's great!", "Oh wow, nice."],
-  sad:    ["Aww.", "Oh no.", "Hmm, I'm sorry to hear that."]
-};
-let held = "", holds = 0, holdT = null, bcT = null, lastAck = "", early = false, fxP = null, fxPlaying = false, stopFn = null;
-let clipN = 0, clipGen = 0, lastClipEnd = 0, fillerArmed = false, fillN = 0, nextFill = 0, listenSince = 0, nudged = false, lastT = 0;
-
-const fxKey = () => "jv-fx_" + (voice || "default");
-let fxMem = null, fxBusy = {};
-function fxLoad() {
-  const k = fxKey(); if (fxMem && fxMem.k === k) return fxMem.v;
-  let v = {}; try { v = JSON.parse(localStorage.getItem(k)) || {}; } catch (e) {}
-  fxMem = { k, v }; return v;
-}
-function ensureFx() {                       // makes each reaction once per voice, keeps it on the phone
-  const k = fxKey(), store = fxLoad();
-  const todo = Object.values(ACKS).flat().filter((t, i, a) => !store[t] && a.indexOf(t) === i);
-  if (!todo.length || fxBusy[k]) return;
-  fxBusy[k] = true;
-  const next = () => {
-    const t = todo.shift(); if (!t) return Promise.resolve();
-    return post("/api/speak", { text: t, voice }).then(r => {
-      store[t] = r.audio; try { localStorage.setItem(k, JSON.stringify(store)); } catch (e) {}
-    }).catch(() => {}).then(next);
-  };
-  Promise.all([next(), next()]).then(() => { delete fxBusy[k]; });
-}
-function playB64(b64) {
-  return new Promise(res => {
-    let done = false;
-    const fin = () => { if (done) return; done = true; player.onended = player.onerror = null; if (stopFn === fin) stopFn = null; res(); };
-    stopFn = fin; player.onended = fin; player.onerror = fin;
-    levelOf(b64).then(m => {
-      if (done) return;
-      auto = m; applyVol();
-      player.src = "data:audio/mpeg;base64," + b64;
-      player.play().catch(fin);
-    });
-  });
-}
-function stopPlayback() { try { player.pause(); } catch (e) {} if (stopFn) { const f = stopFn; stopFn = null; f(); } }
-function playClip(audio) {                  // reactions play one after another, never on top of each other
-  if (!audio) return null;
-  const g = clipGen; clipN++; fxPlaying = true;
-  fxP = (fxP || Promise.resolve()).then(() => g === clipGen ? playB64(audio) : null).then(() => {
-    if (g !== clipGen) return;
-    lastClipEnd = performance.now(); clipN = Math.max(0, clipN - 1);
-    if (!clipN) {
-      fxPlaying = false; fxP = null;
-      if (state === "listen" && !speechStart && on && !paused) newRec();   // drop what the mic heard while the reaction played
-    }
-  });
-  return fxP;
-}
-function cancelClips() { clipGen++; clipN = 0; fxP = null; fxPlaying = false; stopPlayback(); }
-function armFiller(ms) { fillerArmed = true; fillN = 0; nextFill = performance.now() + ms; }
-function pickFrom(kind, skipRandom) {
-  if (!kind) return null;
-  if (!skipRandom && Math.random() > 0.8) return null;     // sometimes just answer, like a real person
-  const store = fxLoad(), opts = (ACKS[kind] || []).filter(t => store[t] && t !== lastAck);
-  if (!opts.length) return null;
-  const t = opts[Math.floor(Math.random() * opts.length)]; lastAck = t;
-  return { text: t, audio: store[t] };
-}
-function classify(text) {
-  const s = text.toLowerCase().replace(/\s+/g, " ").trim(), words = s.split(" ").length;
-  if (/^(hi|hello|hey|good (morning|afternoon|evening)|thanks?|thank you|bye|goodbye|ok|okay|yes|no|yeah|yep|nope|please)\b[.!?, ]*$/.test(s)) return "";
-  if (/\b(sorry|sad|tired|sick|died|passed away|failed|lost my|stressed|worried|bad day|angry|upset|hurt|crying|scared|lonely|headache|hungry)\b/.test(s)) return "sad";
-  if (/\b(i passed|i won|promoted|graduat|my birthday|excited|so happy|finally|good news|congrat|got the job|got admission)\b/.test(s)) return "good";
-  if (/^(please |can you |could you |kindly |i want you to |i need you to )?(tell me|explain|teach|show|give me|make|create|write|help me|quiz|solve|list|translate|summari[sz]e|prepare|plan|set)\b/.test(s)) return "task";
-  if (/\?$/.test(s) || /^(what|why|how|who|when|where|which|can|could|is|are|do|does|did|will|would|should)\b/.test(s)) return "ask";
-  return words >= 4 ? "ok" : "";
-}
-/* did you stop mid-thought? ("and", "but", "so", "um", "emm...", a comma...) */
-const HANG = ["and", "but", "so", "because", "or", "the", "a", "an", "to", "of", "with", "for", "in", "on", "at", "that", "if", "when", "my", "your", "um", "uh", "umm", "uhh", "hmm", "like", "then", "also", "i'm", "it's", "why", "about", "from", "than", "which"];
-function incomplete(t) {
-  t = t.trim(); if (!t) return false;
-  if (/(\.\.\.|…|[,;:\-–—])\s*$/.test(t)) return true;
-  const w = t.toLowerCase().replace(/[.?!"')\]]+$/, "").split(/\s+/), last = w[w.length - 1];
-  if (w.length === 1) return /^(um+|uh+|hmm+|mm+|m+h?m+|emm+|erm+|ehm+|er+|ah+)$/.test(last);
-  return HANG.includes(last);
-}
-function dropHeld() { held = ""; holds = 0; clearTimeout(holdT); clearTimeout(bcT); }
-function armHold() {                        // you paused mid-thought and never came back: answer what we have
-  clearTimeout(holdT);
-  holdT = setTimeout(() => {
-    if (held && on && !paused && state === "listen" && !speechStart) {
-      const my = ++turn; stopRec(); set("think", "Thinking…"); armFiller(1500); respond(my, held);
-    }
-  }, 4500);
-}
-function armBC() {                          // you paused or said "emm...": say "okay, I'm listening"
-  clearTimeout(bcT);
-  bcT = setTimeout(() => {
-    if (!held || !on || paused || state !== "listen" || speechStart || fxPlaying) return;
-    if (performance.now() - lastClipEnd < 2500) return;
-    const c = pickFrom("listen", true); if (c) playClip(c.audio);
-  }, 1300);
-}
-function cancelPending() { turn++; fillerArmed = false; cancelClips(); }
-
 function end() {
-  on = false; paused = false; cancelPending(); dropHeld(); stopRec();
+  on = false; paused = false; stopRec();
   stream && stream.getTracks().forEach(t => t.stop());
   player.pause(); document.body.style.setProperty("--l", 0); barsTo(0, 0);
   $("#pause span").textContent = "Pause";
@@ -395,7 +264,7 @@ function end() {
 function pause() {
   if (!on) return;
   if (!paused) {
-    paused = true; fillerArmed = false; cancelClips(); stopRec(); dropHeld(); barsTo(0, 0);
+    paused = true; player.pause(); stopRec(); barsTo(0, 0);
     document.body.style.setProperty("--l", 0);
     $("#pause span").textContent = "Resume"; set("idle", "Paused");
   } else {
@@ -403,66 +272,43 @@ function pause() {
   }
 }
 
-function newRec() {                         // fresh recording, so reactions we played are never sent as your words
-  stopRec(); chunks = []; speechStart = 0;
+function listen() {
+  chunks = []; speechStart = 0;
   rec = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
   rec.start();
-}
-function listen() {
-  newRec(); fillerArmed = false; clearTimeout(bcT); listenSince = performance.now(); nudged = false;
   set("listen", "Listening…");
 }
 
 function finish() {
   const spoke = lastVoice - speechStart;
-  rec.onstop = () => {
-    if (spoke < 400) return listen();
-    const my = ++turn; early = false;
-    if (spoke > 1500) { const ea = pickFrom("early"); if (ea) { early = true; playClip(ea.audio); } }   // react at once, transcribing takes a moment
-    armFiller(early ? 2800 : 2200);
-    sendBlob(new Blob(chunks, { type: rec.mimeType }), my);
-  };
+  rec.onstop = () => spoke < 400 ? listen() : sendBlob(new Blob(chunks, { type: rec.mimeType }));
   set("think", "Thinking…");
   rec.stop();
 }
 
 function tick() {
   if (!on) return;
-  const now = performance.now(), dt = Math.min(100, now - lastT); lastT = now;
+  const now = performance.now();
   const mic = level(micAn);
   const shown = state === "speak" ? level(outAn) : state === "listen" ? mic : 0;
   document.body.style.setProperty("--l", shown.toFixed(3));
   barsTo(shown, now);
 
-  if (!paused) {
-    if (state === "listen") {
-      if (mic > (fxPlaying ? .35 : .12)) {
-        if (!speechStart) { speechStart = now; clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips(); }
-        lastVoice = now;
-      }
-      else if (speechStart && now - lastVoice > 900) finish();
-      else if (!speechStart && !held && !nudged && !fxPlaying && now - listenSince > 14000) {   // long silence: say we are still here
-        nudged = true; const nd = pickFrom("nudge", true); if (nd) playClip(nd.audio);
-      }
-    } else if (state === "think") {
-      if (fillerArmed && !fxPlaying && now >= nextFill) {       // still working: a short "let's see..." now and then
-        fillN++; const fl = pickFrom(fillN === 1 ? "wait" : "wait2", true);
-        if (fl) playClip(fl.audio);
-        if (fillN >= 4) fillerArmed = false; else nextFill = now + 4500;
-      }
-    } else if (state === "speak" && mic > .35) {
-      cancelPending(); listen(); // you interrupted
-    }
+  if (state === "listen") {
+    if (mic > .12) { if (!speechStart) speechStart = now; lastVoice = now; }
+    else if (speechStart && now - lastVoice > 900) finish();
+  } else if (state === "speak" && mic > .35) {
+    player.pause(); listen(); // you interrupted
   }
   requestAnimationFrame(tick);
 }
 
-async function sendBlob(blob, my) {
+async function sendBlob(blob) {
   const audio = await new Promise(ok => {
     const f = new FileReader(); f.onload = () => ok(f.result.split(",")[1]); f.readAsDataURL(blob);
   });
-  transcribe(my, audio);
+  send({ audio, ext });
 }
 
 let turn = 0;
@@ -472,65 +318,36 @@ async function post(url, body) {
   if (!r.ok) throw new Error(d.error || "Request failed");
   return d;
 }
-const langName = () => (LANGS.find(l => l[0] === lang) || [])[1] || "";
-function fail(e) {
-  fillerArmed = false;
-  set("idle", "Error: " + (navigator.onLine ? e.message : "No internet. I need to be online to talk."));
-  if (on && !paused) setTimeout(() => on && !paused && state === "idle" && listen(), 3000);
-}
 
-/* step 1: your voice into words, and decide if you are really finished */
-async function transcribe(my, audio) {
-  try {
-    const d = await post("/api/voice", { audio, ext, lang, langName: langName(), sttOnly: true });
-    if (my !== turn) return;
-    const heard = String(d.user || "").trim();
-    if (!heard) { if (held) respond(my, held); else listen(); return; }
-    const full = (held ? held + " " : "") + heard;
-    if (holds < 2 && incomplete(full)) {        // still thinking out loud: keep listening and join the next part
-      held = full; holds++; listen(); armHold(); armBC(); return;
-    }
-    respond(my, full);
-  } catch (e) { if (my === turn) fail(e); }
-}
-/* step 2: react like a person while the answer is being thought up */
-function respond(my, text) {
-  dropHeld();
-  const ack = early ? null : pickFrom(classify(text));
-  if (ack) playClip(ack.audio);
-  armFiller(ack || early ? 2600 : 1500);
-  answer(my, text, ack ? ack.text : "");
-}
-
-async function answer(my, text, ackText, typed) {
+async function send(payload, typed) {
+  const my = ++turn;
   const wait = bubble("a", "", null, true);
-  bubble("u", text, wait);
+  if (typed) bubble("u", typed, wait);
   try {
-    const spoken = document.body.classList.contains("vm");     // voice screen: short spoken answer, faster
-    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText });
-    fillerArmed = false;
-    if (!d.reply) { wait.remove(); if (my === turn && on && !paused) listen(); return; }
+    const d = await post("/api/voice", { ...payload, history, memory, lang, langName: (LANGS.find(l => l[0] === lang) || [])[1] || "" });
+    if (!d.reply) { wait.remove(); if (on && !paused) listen(); return; }
+    if (!typed) bubble("u", d.user, wait);
     bubble("a", d.reply, wait); wait.remove();
-    history.push({ role: "user", content: text }, { role: "assistant", content: spoken ? d.reply : d.reply + "\nSAY: " + d.say });
+    history.push({ role: "user", content: d.user }, { role: "assistant", content: d.reply + "\nSAY: " + d.say });
     history = history.slice(-16); save("jv-history", history);
     if (d.mem && !memory.includes(d.mem)) { memory.push(d.mem); memory = memory.slice(-30); save("jv-memory", memory); }
     if (!on || paused) return;
     const v = await post("/api/speak", { text: d.say || d.reply, voice });   // text is already on screen while this loads
     if (my !== turn || !on || paused) return;
-    if (fxP) await fxP;                                          // let the reaction finish first
-    if (my !== turn || !on || paused) return;
+    player.src = "data:audio/mpeg;base64," + v.audio;
     set("speak", "Speaking…");
-    await playB64(v.audio);
-    if (my === turn && on && !paused) listen();
+    await player.play();
   } catch (e) {
-    wait.remove(); if (my === turn) fail(e);
+    wait.remove(); set("idle", "Error: " + (navigator.onLine ? e.message : "No internet. I need to be online to talk."));
+    if (on && !paused) setTimeout(() => on && !paused && listen(), 3000);
   }
 }
 
+player.onended = () => { if (on && !paused && state === "speak") listen(); };
 $("#orb").onclick = () => {
   if (!on) begin();
   else if (paused) pause();
-  else if (state === "speak" || state === "think") { cancelPending(); listen(); }
+  else if (state === "speak") { player.pause(); listen(); }
 };
 $("#end").onclick = () => { end(); vmOff(); };
 $("#pause").onclick = pause;
@@ -540,9 +357,8 @@ $("#tf").onsubmit = e => {
   e.preventDefault();
   const t = $("#ti").value.trim(); if (!t) return;
   $("#ti").value = "";
-  dropHeld(); const my = ++turn;
-  if (on && !paused) { cancelClips(); stopRec(); set("think", "Thinking…"); armFiller(3000); }
-  answer(my, t, "");
+  if (on && !paused) { player.pause(); stopRec(); set("think", "Thinking…"); }
+  send({ text: t, silent: !on || paused }, t);
 };
 
 function theme(light) {
@@ -562,6 +378,12 @@ $("#inst").onclick = () => {
   if (installEv) { installEv.prompt(); installEv = null; }
   else $("#vmsg").textContent = "iPhone: tap Share, then Add to Home Screen. Android: open the browser menu, then Install app.";
 };
+$("#eye").onclick = () => {
+  if (window.Vision) return Vision.open();
+  const s = document.createElement("script"); s.src = "/vision.js";
+  s.onload = () => Vision.open(); s.onerror = () => set("idle", "Error: Vision could not load.");
+  document.head.append(s);
+};
 function vmOff() { document.body.classList.remove("vm"); }
 $("#vmb").onclick = async () => { document.body.classList.add("vm"); if (!on) await begin(); };
 $("#vback").onclick = () => { end(); vmOff(); };
@@ -571,7 +393,7 @@ function drawVoices() {
   voices.forEach(v => sel.append(new Option(v.name, v.id)));
   sel.value = voice; voice = sel.value;
 }
-function pick(v) { voice = v; try { localStorage.setItem("jv-voice", v); } catch (e) {} ensureFx(); }
+function pick(v) { voice = v; try { localStorage.setItem("jv-voice", v); } catch (e) {} }
 drawVoices();
 $("#gear").onclick = () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; };
 $("#done").onclick = () => $("#sheet").hidden = true;
@@ -590,13 +412,10 @@ $("#vdel").onclick = () => {
   if (!voice) return;
   voices = voices.filter(v => v.id !== voice); save("jv-voices", voices); pick(""); drawVoices();
 };
-$("#vvol").value = vol; $("#volv").textContent = vol + "%";
-$("#vvol").oninput = e => { vol = parseInt(e.target.value, 10) || 100; $("#volv").textContent = vol + "%"; try { localStorage.setItem("jv-vol", vol); } catch (x) {} applyVol(); };
 $("#vtest").onclick = async () => {
   $("#vmsg").textContent = "Loading voice…";
   try {
     const v = await post("/api/speak", { text: "Hello! This is how I sound.", voice });
-    try { initAudio(); await ctx.resume(); auto = await levelOf(v.audio); applyVol(); } catch (x) {}
     player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); $("#vmsg").textContent = "";
   } catch (e) { $("#vmsg").textContent = e.message; }
 };
