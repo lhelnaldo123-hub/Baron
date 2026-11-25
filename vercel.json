@@ -1,9 +1,27 @@
 {
   "functions": {
-    "api/voice.js": { "maxDuration": 30 },
-    "api/speak.js": { "maxDuration": 30 }
+    "api/voice.js": {
+      "maxDuration": 45
+    },
+    "api/mail.js": {
+      "maxDuration": 30
+    },
+    "api/speak.js": {
+      "maxDuration": 30
+    },
+    "api/telegram.js": {
+      "maxDuration": 45
+    }
   },
   "headers": [
-    { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    {
+      "source": "/sw.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache"
+        }
+      ]
+    }
   ]
 }
