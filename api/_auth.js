@@ -1,6 +1,10 @@
 // Passcode sessions. A token is "expiry.signature", signed with SESSION_SECRET.
 const crypto = require("crypto");
-const secret = () => process.env.SESSION_SECRET || "";
+// SESSION_SECRET is optional. Without it, the key is built from the passcode plus your private API keys,
+// so a stolen token cannot be used to guess the passcode.
+const secret = () => process.env.SESSION_SECRET || (process.env.APP_PASSCODE
+  ? crypto.createHash("sha256").update([process.env.GROQ_API_KEY, process.env.FISH_API_KEY, process.env.APP_PASSCODE].join("|")).digest("hex")
+  : "");
 const sig = exp => crypto.createHmac("sha256", secret()).update("jarvis:" + exp).digest("base64url");
 
 function issue(ms) {
