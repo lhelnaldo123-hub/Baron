@@ -6,9 +6,6 @@
     "api/mail.js": {
       "maxDuration": 30
     },
-    "api/see.js": {
-      "maxDuration": 30
-    },
     "api/speak.js": {
       "maxDuration": 30
     },
