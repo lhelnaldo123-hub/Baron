@@ -251,6 +251,7 @@
       setPhase("hud");
       if (!h) toast("HAND TRACKING OFF · USE TOUCH");
       else toast("WELCOME");
+      if (window.jvGreet) window.jvGreet();
     });
   }
 
