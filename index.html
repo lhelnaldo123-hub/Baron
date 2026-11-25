@@ -95,7 +95,8 @@
     padding: .8rem; border-radius: 999px; border: 1px solid var(--line); background: var(--btn); }
   .btns svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
   #end { color: #ff5a5a; }
-  .hr { display: flex; gap: .2rem; }
+  .hr { display: flex; gap: .1rem; }
+  .hr .ib { width: 36px; height: 36px; }
   .vmbar { display: none; justify-content: space-between; padding: .7rem 1rem; }
   .vmbar .ib, .hr .ib { background: var(--btn); }
   body.vm header, body.vm #chat, body.vm .bars, body.vm .dots, body.vm .tf, body.vm #kb, body.vm #st, body.vm .orb svg { display: none !important; }
@@ -128,7 +129,7 @@
   <header>
     <button class="ib" id="new" aria-label="New chat"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></button>
     <div class="hd"><i class="av big"></i><div class="title"><b>Jarvis</b><span>Always here to help…</span></div></div>
-    <div class="hr"><button class="ib" id="eye" aria-label="Vision mode"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
+    <div class="hr"><button class="ib" id="heart" aria-label="Body scan"><svg viewBox="0 0 24 24"><path d="M3 12h4l2-5 4 10 2-5h6"/></svg></button><button class="ib" id="eye" aria-label="Vision mode"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button><button class="ib" id="vmb" aria-label="Voice mode"><svg viewBox="0 0 24 24"><path d="M4 10v4M8 6v12M12 3v18M16 7v10M20 10v4"/></svg></button><button class="ib" id="gear" aria-label="Switch light or dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5h0a1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button></div>
   </header>
   <div class="vmbar">
     <button class="ib" id="vback" aria-label="Back to chat"><svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg></button>
@@ -497,6 +498,18 @@ $("#inst").onclick = () => {
   if (installEv) { installEv.prompt(); installEv = null; }
   else $("#vmsg").textContent = "iPhone: tap Share, then Add to Home Screen. Android: open the browser menu, then Install app.";
 };
+$("#heart").onclick = () => {
+  primeAudio();
+  if (window.Body) return Body.open();
+  const s = document.createElement("script"); s.src = "/body.js";
+  s.onload = () => Body.open(); s.onerror = () => set("idle", "Error: Body scan could not load.");
+  document.head.append(s);
+};
+window.jvSay = async text => {
+  if (typeof on !== "undefined" && on) return;
+  try { const v = await post("/api/speak", { text, voice }); player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); } catch (e) {}
+};
+window.jvSend = text => { send({ text }, text); };
 $("#eye").onclick = () => {
   primeAudio();
   if (window.Vision) return Vision.open();
