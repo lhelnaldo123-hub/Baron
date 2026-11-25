@@ -31,6 +31,10 @@
     {
       "path": "/api/notify?mode=morning",
       "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/notify?mode=evening",
+      "schedule": "0 19 * * *"
     }
   ]
 }
