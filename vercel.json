@@ -11,6 +11,9 @@
     },
     "api/telegram.js": {
       "maxDuration": 45
+    },
+    "api/notify.js": {
+      "maxDuration": 45
     }
   },
   "headers": [
@@ -22,6 +25,12 @@
           "value": "no-cache"
         }
       ]
+    }
+  ],
+  "crons": [
+    {
+      "path": "/api/notify?mode=morning",
+      "schedule": "0 7 * * *"
     }
   ]
 }
