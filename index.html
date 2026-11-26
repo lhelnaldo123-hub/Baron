@@ -630,7 +630,7 @@ function tick() {
       }
       else if (!speechStart && (loudSince = 0, false)) {}
       else if (speechStart && (now - lastVoice > 900 || now - speechStart > 25000)) finish();
-      else if (!speechStart && !held && !nudged && !fxPlaying && now - listenSince > 14000) {   // long silence: say we are still here
+      else if (!speechStart && !held && !nudged && !fxPlaying && !reading && now - listenSince > 14000) {   // long silence: say we are still here
         nudged = true; const nd = pickFrom("nudge", true); if (nd) playClip(nd.audio);
       }
     } else if (state === "think") {
@@ -767,6 +767,7 @@ async function transcribe(my, audio) {
     const heard = String(d.user || "").trim();
     if (!heard) { if (held) respond(my, held); else listen(); return; }
     const full = (held ? held + " " : "") + heard;
+    if (window.jvReadGate && window.jvReadGate(full)) { dropHeld(); if (on && !paused) listen(); return; }   // reading aloud: only "stop" counts
     if (window.jvLookCommand && window.jvLookCommand(full)) { dropHeld(); bubble("u", full); return; }   // "what is this" opens the camera
     if (window.jvCommand && window.jvCommand(full)) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
       dropHeld(); bubble("u", full); if (on && !paused) listen(); return;
@@ -828,6 +829,7 @@ $("#orb").addEventListener("pointerdown", () => {
 ["pointerup", "pointercancel", "pointerleave"].forEach(ev => $("#orb").addEventListener(ev, pttUp));
 $("#orb").onclick = () => {
   if (pttHandled) return;                           // that tap was a hold to talk
+  if (window.jvStopRead && window.jvStopRead()) return;   // tapping the orb stops the reading
   if (!on) begin();
   else if (paused) pause();
   else if (state === "speak" || state === "think") { cancelPending(); listen(); }
@@ -840,6 +842,7 @@ $("#tf").onsubmit = e => {
   e.preventDefault();
   const t = $("#ti").value.trim(); if (!t) return;
   $("#ti").value = "";
+  if (window.jvReadGate && window.jvReadGate(t, true)) { return; }
   if (window.jvLookCommand && window.jvLookCommand(t)) { bubble("u", t); return; }
   if (window.jvCommand && window.jvCommand(t)) { bubble("u", t); return; }   // short body command: the avatar just does it
   dropHeld(); const my = ++turn;
@@ -882,6 +885,41 @@ window.jvSpeak = async text => {                 // speak any sentence (used by 
     if (on && !paused) playClip(v.audio);
     else { initAudio(); player.src = "data:audio/mpeg;base64," + v.audio; await player.play(); }
   } catch (e) {}
+};
+/* Read a long text aloud from start to finish, in pieces, and stop ONLY when told to (say "stop", tap the orb, or press Stop). */
+let readId = 0, reading = false;
+const STOP_WORDS = /^(ok |okay |jarvis |please )*(stop|enough|quiet|silence|cancel|pause|wait|hold on|shut up|be quiet)( reading| it| that| now| please| jarvis| talking| there)*$|^(thats|that is|thats) (enough|ok|okay|fine|all)$/;
+const readPieces = text => {
+  const sents = String(text || "").replace(/^[\s]*[-•*]\s*/gm, "").split(/(?<=[.!?:;])\s+|\n+/).map(s => s.trim()).filter(Boolean), out = [];
+  let cur = "";
+  const push = s => { if (s) out.push(s); };
+  for (let s of sents) {
+    while (s.length > 380) { let k = s.lastIndexOf(",", 380); if (k < 120) k = s.lastIndexOf(" ", 380); if (k < 1) k = 380; push(cur); cur = ""; push(s.slice(0, k + 1).trim()); s = s.slice(k + 1).trim(); }
+    if ((cur + " " + s).trim().length > 380) { push(cur); cur = s; } else cur = (cur + " " + s).trim();
+  }
+  push(cur); return out;
+};
+window.jvRead = async text => {
+  const id = ++readId, pieces = readPieces(text); if (!pieces.length) return;
+  reading = true;
+  try { initAudio(); if (ctx && ctx.state !== "running") await ctx.resume().catch(() => {}); } catch (e) {}
+  cancelClips();
+  const get = i => post("/api/speak", { text: pieces[i], voice }).catch(() => null);
+  let next = get(0);
+  for (let i = 0; i < pieces.length && id === readId; i++) {
+    const v = await next; if (i + 1 < pieces.length) next = get(i + 1);   // the next piece is made while this one plays
+    if (id !== readId) break;
+    if (v && v.audio) await playB64(v.audio);
+  }
+  if (id === readId) reading = false;
+};
+window.jvStopRead = () => { if (!reading) return false; readId++; reading = false; stopPlayback(); return true; };
+window.jvReading = () => reading;
+window.jvReadGate = (text, typed) => {            // while reading: only "stop" counts. Anything else heard is just Jarvis's own voice coming back, so it is ignored
+  if (!reading) return false;
+  const t = String(text || "").toLowerCase().replace(/[’']/g, "").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+  if (STOP_WORDS.test(t)) { window.jvStopRead(); return true; }
+  return !typed;
 };
 window.jvConfirm = () => { if (!on || paused) return; const c = pickFrom("done", true); if (c) playClip(c.audio); };   // short "Done." from the phone, no waiting
 // When Jarvis finishes a body move it says so and asks what is next. "ok" / "that's all" stops it (handled in avatar.js).
