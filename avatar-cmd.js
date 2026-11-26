@@ -12,6 +12,11 @@
     const has = re => re.test(t);
     const head = has(/\b(head|neck)\b/);
 
+    // ---------- flips and rolls (checked first, so "back flip" is not read as "turn round") ----------
+    const flipBack = has(/\b(back ?flips?|backward flips?|flip backwards?|back somersaults?|backwards? somersaults?)\b/), rollBack = has(/\b(back rol(l|ls|ling)|backwards? rol(l|ls|ling)|rol(l|ling) backwards?|roll back)\b/);
+    const flipFront = has(/\b(front ?flips?|forward flips?|flip forwards?|somersaults?|summersaults?|(do|make|perform) flip|flip over)\b/), rollFront = has(/\b(front rol(l|ls|ling)|forwards? rol(l|ls|ling)|rol(l|ling) forwards?|roll over|(do|make|perform) roll|rolling)\b/);
+    if (!head && (flipBack || rollBack || flipFront || rollFront)) { out.push({ k: "act", a: flipBack ? "backflip" : rollBack ? "backroll" : flipFront ? "frontflip" : "frontroll" }); return out; }
+
     // ---------- whole-body turning ----------
     const turnWord = has(/\b(turn|spin|rotate|face|twirl|pivot|swivel|go|come|flip|show)\b/);
     if (!head && has(/\b(your back|show.*\bback\b|back (to|toward|towards) me|back on me)\b/)) out.push({ k: "turn", to: 180 });
