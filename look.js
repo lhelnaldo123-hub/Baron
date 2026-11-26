@@ -35,7 +35,7 @@
     <button class="chip" data-q="Read all the text you can see, exactly as written.">Read text</button>
     <button class="chip" data-q="Translate the text you see into English.">Translate</button></div>
     <div class="row2"><input id="lkq" placeholder="Ask about it (optional)" enterkeyhint="send"><button class="snap" id="lks" aria-label="Take photo"></button></div></div>
-  <div class="res"><div class="tx"></div><div class="btns"><button id="lkc">Copy</button><button class="pri" id="lka">Ask again</button><button id="lkd">Close</button></div></div>`;
+  <div class="res"><div class="tx"></div><div class="btns"><button id="lkr">Stop</button><button id="lkc">Copy</button><button class="pri" id="lka">Ask again</button><button id="lkd">Close</button></div></div>`;
   document.body.append(el);
   const $ = s => el.querySelector(s), vid = $("video"), q = $("#lkq"), res = $(".res"), msg = $(".msg"), cd = $(".cd"), snap = $("#lks");
   let stream = null, facing = "environment", torch = false, busy = false, timer = null, lastText = "";
@@ -79,15 +79,18 @@
       lastText = d.reply || "I couldn't tell."; say("");
       $(".tx").textContent = lastText; res.classList.add("on");
       if (window.jvLookShow) window.jvLookShow(question || "What is this?", lastText);
-      if (window.jvSpeak) window.jvSpeak(d.say || lastText.slice(0, 200));
+      readOut();
     } catch (e) { say("Error: " + e.message); }
     busy = false; snap.disabled = false;
   }
 
+  const rb = $("#lkr");                    // reads the WHOLE answer, and only stops when you say stop, tap the orb or press Stop
+  const readOut = () => { if (!window.jvRead) return; rb.textContent = "Stop"; window.jvRead(lastText).finally(() => { if (!(window.jvReading && window.jvReading())) rb.textContent = "Read"; }); };
+  rb.onclick = () => { if (window.jvReading && window.jvReading()) { window.jvStopRead(); rb.textContent = "Read"; } else readOut(); };
   snap.onclick = shoot;
   q.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); shoot(); } };
   $("#lkx").onclick = $("#lkd").onclick = close;
-  $("#lka").onclick = () => { res.classList.remove("on"); say(""); q.value = ""; el.querySelectorAll(".chip").forEach(c => c.classList.remove("sel")); };
+  $("#lka").onclick = () => { if (window.jvStopRead) window.jvStopRead(); res.classList.remove("on"); say(""); q.value = ""; el.querySelectorAll(".chip").forEach(c => c.classList.remove("sel")); };
   $("#lkc").onclick = e => navigator.clipboard.writeText(lastText).then(() => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1500); }).catch(() => {});
   $("#lkf").onclick = () => { facing = facing === "environment" ? "user" : "environment"; start(); };
   $("#lkt").onclick = async () => {
