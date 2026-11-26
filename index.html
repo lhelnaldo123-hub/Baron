@@ -337,10 +337,10 @@ const TYPES = [["audio/webm;codecs=opus", "webm"], ["audio/mp4", "mp4"], ["audio
 const [mime, ext] = TYPES.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t[0])) || ["", "webm"];
 
 let state = "idle", on = false, paused = false, ctx, micAn, outAn, stream, rec, chunks = [];
-let speechStart = 0, lastVoice = 0, floorL = 0.03, loudSince = 0, spk = 0;
+let speechStart = 0, lastVoice = 0, floorL = 0.03, loudSince = 0, spk = 0, intSince = 0;
 /* Focus mode: only the voice close to the phone counts. 0 = off, 1 = normal, 2 = strong (noisy room).
    It learns the room noise, ignores quieter far-away voices, and ends your turn when YOUR level drops (not when the room does). */
-const FOCUS = [{ k: 0, min: 0, rel: 0 }, { k: 2.2, min: 120, rel: .35 }, { k: 3.2, min: 180, rel: .5 }];
+const FOCUS = [{ k: 0, min: 0, rel: 0 }, { k: 2.5, min: 150, rel: .5 }, { k: 3.5, min: 220, rel: .65 }];
 let focusMode = 1; try { const f = localStorage.getItem("jv-focus"); if (f !== null) focusMode = Math.min(2, Math.max(0, parseInt(f, 10) || 0)); } catch (e) {}
 window.jvGetFocus = () => focusMode;
 window.jvSetFocus = m => { focusMode = Math.min(2, Math.max(0, m | 0)); floorL = 0.03; try { localStorage.setItem("jv-focus", focusMode); } catch (e) {} return focusMode; };
@@ -597,7 +597,7 @@ function tick() {
     if (state === "listen") {
       const F = FOCUS[focusMode], base = Math.max(fxPlaying ? .35 : .12, floorL * F.k);
       const thr = speechStart ? Math.max(base, spk * F.rel) : base;   // once you talk, the bar follows YOUR loudness, so quieter room voices do not keep the turn open
-      if (!speechStart && mic <= thr) floorL += (mic - floorL) * (mic > floorL ? .004 : .05);   // learn the room noise
+      if (!speechStart) floorL = Math.min(.5, floorL + (mic - floorL) * (mic > floorL ? .006 : .05));   // learn the room noise, even a constant hum that is always above the bar
       if (mic > thr) {
         if (!speechStart) {
           if (!loudSince) loudSince = now;
@@ -615,8 +615,9 @@ function tick() {
         if (fl) playClip(fl.audio);
         if (fillN >= 4) fillerArmed = false; else nextFill = now + 4500;
       }
-    } else if (state === "speak" && mic > Math.max(.35, floorL * 3.5)) {
-      cancelPending(); listen(); // you interrupted
+    } else if (state === "speak") {
+      if (mic > Math.max(.5, floorL * 4)) { if (!intSince) intSince = now; if (now - intSince > 350) { intSince = 0; cancelPending(); listen(); } }   // you interrupted (a real voice for a third of a second, not a bump or Jarvis's own echo)
+      else intSince = 0;
     }
   }
   requestAnimationFrame(tick);
