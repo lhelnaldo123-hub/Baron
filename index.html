@@ -839,6 +839,14 @@ window.jvSpeak = async text => {                 // speak any sentence (used by 
   } catch (e) {}
 };
 window.jvConfirm = () => { if (!on || paused) return; const c = pickFrom("done", true); if (c) playClip(c.audio); };   // short "Done." from the phone, no waiting
+// When Jarvis finishes a body move it says so and asks what is next. "ok" / "that's all" stops it (handled in avatar.js).
+const jvLater = async text => {
+  bubble("a", text);
+  for (let i = 0; i < 40 && document.body.dataset.s === "speak"; i++) await new Promise(r => setTimeout(r, 200));   // let it finish talking first
+  if (window.jvSpeak) window.jvSpeak(text);
+};
+window.jvAvatarDone = () => jvLater("Done. What else would you like me to do?");
+window.jvAvatarOk = () => jvLater("Okay, I'll stop here.");
 window.jvSend = text => { dropHeld(); const my = ++turn; answer(my, text, ""); };
 function vmOff() { document.body.classList.remove("vm"); }
 $("#vmb").onclick = async () => { document.body.classList.add("vm"); if (!on) await begin(); };
