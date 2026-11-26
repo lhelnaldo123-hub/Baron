@@ -249,6 +249,18 @@
       case "dance":   { const ph = side === "R" ? 0 : Math.PI; return { u: V(sx * 0.7, 0.2 + 0.6 * s(t * 5 + ph), 0.2), f: V(sx * 0.3, 0.9, 0.3 + 0.3 * c(t * 5 + ph)), roll: 0, k: 8 }; }
       case "swing":   { const ph = side === "R" ? 0 : Math.PI; return { u: V(sx * 0.12, -0.9, 0.45 * s(t * 5 + ph)), f: V(sx * 0.1, -0.7, 0.7 + 0.3 * s(t * 5 + ph)), roll: 0, k: 9 }; }
       case "custom":  { const a = A.arms[side]; if (a.cu && a.cf) return { u: a.cu.clone(), f: a.cf.clone(), roll: 0, k: 6 }; return armPose(side, "idle", t, p); }
+      case "heart":   return { u: V(sx * 0.18, -0.9, 0.2), f: V(-sx * 0.85, 0.4, 0.1), roll: 0, k: 5 };                 // hand on the heart
+      case "think":   return { u: V(sx * 0.1, -0.75, 0.6), f: V(-sx * 0.3, 0.85, -0.3), roll: 0, k: 5 };                // hand on the chin
+      case "flex":    { const e = 0.5 + 0.5 * s(t * 3); return { u: V(sx, 0.05, 0), f: V(-sx * (0.12 + 0.1 * e), 1, 0.05), roll: 0, k: 6 }; }
+      case "stop":    return { u: V(sx * 0.1, 0.25, 1), f: V(sx * 0.1, 0.45, 1), roll: 0, k: 6 };                          // arm out, halt
+      case "wings":   return { u: V(sx, 0.04 + 0.05 * s(t * 4), 0), f: V(sx, 0.04 + 0.05 * s(t * 4), 0), roll: 0, k: 5 };  // arms out like an aeroplane
+      case "beckon":  { const w = s(t * 8); return { u: V(sx * 0.3, -0.55, 0.7), f: V(sx * 0.1, 0.5 + 0.35 * w, 0.8 - 0.3 * w), roll: 0, k: 9 }; }
+      case "hug":     return { u: V(sx * 0.5, -0.55, 0.65), f: V(-sx * 0.55, 0.05, 0.85), roll: 0, k: 5 };
+      case "punch":   { const e = Math.max(0, s(t * 7 + (side === "R" ? 0 : Math.PI))); return { u: V(sx * (0.3 - 0.22 * e), -0.6 + 0.6 * e, 0.55 + 0.45 * e), f: V(-sx * (0.15 - 0.2 * e), 0.95 - 0.95 * e, 0.35 + 0.65 * e), roll: 0, k: 16 }; }
+      case "shrug":   return { u: V(sx * 0.35, -0.85, 0.2), f: V(sx * 0.5, -0.1, 0.85), roll: -sx * CFG.palmRoll, k: 6 };
+      case "robot":   { const st = (Math.floor(t * 2.2) + (side === "R" ? 0 : 2)) % 4, P = [[V(sx, 0, 0), V(sx * 0.02, 1, 0)], [V(0, 0, 1), V(0, 1, 0.05)], [V(sx, 0, 0), V(sx * 0.02, -1, 0)], [V(sx * 0.1, -1, 0.05), V(0, 0, 1)]]; return { u: P[st][0], f: P[st][1], roll: 0, k: 18 }; }
+      case "runarm":  { const w = s(t * 9 + (side === "R" ? 0 : Math.PI)); return { u: V(sx * 0.12, -0.85, 0.6 * w), f: V(sx * 0.08, 0.25 * w, 0.95), roll: 0, k: 12 }; }
+      case "jacks":   { const a = Math.PI * (0.5 + 0.5 * s(t * 7)), d = V(sx * Math.sin(a), -Math.cos(a), 0); return { u: d, f: d.clone(), roll: 0, k: 14 }; }
       case "beat":    { const e = s(Math.PI * clamp(p, 0, 1)); return { u: V(sx * 0.22, -0.78 + 0.1 * e, 0.28), f: V(sx * 0.15, -0.35 + 0.5 * e + 0.12 * s(t * 5), 1), roll: -sx * 0.4 * e, k: 6 }; }
       default: { const br = A.breathe; return { u: V(sx * (0.1 + 0.01 * br), -1, 0.02), f: V(sx * 0.07, -1, 0.34), roll: 0, k: 5 }; }
     }
@@ -274,6 +286,11 @@
       case "march": { const l = Math.max(0, s(t * 5 + ph)); return { u: V(sx * 0.05, -1 + 1.1 * l, 0.9 * l), f: V(sx * 0.05, -1, 0.1 * l), k: 10 }; }
       case "step":  { const l = Math.max(0, s(t * 5 + ph)); return { u: V(sx * (0.05 + 0.25 * l), -1 + 0.5 * l, 0.3 * l), f: V(sx * 0.05, -1, -0.15 * l), k: 9 }; }
       case "jump":  { const e = Math.abs(s(p * Math.PI * 2)); return { u: V(sx * 0.08, -1 + 0.55 * e, 0.7 * e), f: V(sx * 0.05, -1 + 0.1 * e, -0.9 * e), k: 9 }; }
+      case "wide":  return { u: V(sx * 0.4, -0.92, 0), f: V(sx * 0.1, -1, 0), k: 5 };                                  // legs apart
+      case "squat": return { u: V(sx * 0.18, -0.5, 0.85), f: V(sx * 0.05, -0.92, -0.4), k: 5 };                        // knees bent low
+      case "stomp": { const l = Math.max(0, s(t * 6 + ph)); return { u: V(sx * 0.05, -1 + 0.45 * l, 0.45 * l), f: V(sx * 0.05, -1, 0), k: 14 }; }
+      case "run":   { const w = s(t * 9 + ph), th = 0.9 * w, kb = 0.9 * (0.5 + 0.5 * Math.cos(t * 9 + ph)); return { u: V(sx * 0.04, -Math.cos(th), Math.sin(th)), f: V(sx * 0.04, -Math.cos(th - kb), Math.sin(th - kb)), k: 12 }; }
+      case "jacks": { const e = 0.5 + 0.5 * s(t * 7); return { u: V(sx * 0.5 * e, -1, 0), f: V(sx * 0.4 * e, -1, 0), k: 12 }; }
       case "custom": { const a = A.legs[side]; if (a.cu && a.cf) return { u: a.cu.clone(), f: a.cf.clone(), k: 6 }; break; }
     }
     return { u: rd.u, f: rd.f, k: 5 };
@@ -292,9 +309,9 @@
   function lookAt(yaw, pitch, tilt, secs = 3) { A.lookT = { yaw, pitch, tilt }; A.lookUntil = performance.now() / 1000 + secs; }
 
   // how long each new move lasts (seconds) before the body goes back to normal
-  const AHOLD = { wave: 3.6, point: 3.5, move: 4.5, head: 5, hips: 5, salute: 4, clap: 4, cheer: 4 };
-  const LHOLD = { knee: 5, front: 5, side: 5, back: 5, tuck: 4, kick: 2.4, march: 5, step: 5, jump: 2.4 };
-  const ACT = { jump: 2.4, dance: 6, march: 5, bow: 2.8, backflip: 2.8, frontflip: 2.8, backroll: 3.2, frontroll: 3.2 };
+  const AHOLD = { wave: 3.6, point: 3.5, move: 4.5, head: 5, hips: 5, salute: 4, clap: 4, cheer: 4, heart: 5, think: 5, flex: 4, stop: 4, wings: 5, beckon: 4, hug: 4, punch: 4, shrug: 3.5, robot: 6 };
+  const LHOLD = { knee: 5, front: 5, side: 5, back: 5, tuck: 4, kick: 2.4, march: 5, step: 5, jump: 2.4, wide: 5, squat: 4, stomp: 4 };
+  const ACT = { jump: 2.4, dance: 6, march: 5, bow: 2.8, backflip: 2.8, frontflip: 2.8, backroll: 3.2, frontroll: 3.2, jumping_jacks: 5, run: 6, boxing: 5, squat: 4.5, robot_dance: 6, shrug: 3.2, flex: 4 };
   const durOf = i => i.secs || (i.k === "arm" ? (AHOLD[i.pose] || 2) : i.k === "leg" ? (i.pose === "down" ? 1.5 : (LHOLD[i.pose] || 2)) : i.k === "act" ? (ACT[i.a] || 3) : i.k === "custom" ? 4 : i.k === "turn" && i.by ? 2.8 : 2);
 
   function run1(i, now) {
@@ -318,6 +335,13 @@
       if (i.a === "jump") { setArm("B", "cheer", d); setLeg("B", "jump", d); }
       else if (i.a === "dance") { setArm("B", "dance", d); setLeg("B", "step", d); setExpr("smile", d); }
       else if (i.a === "march") { setArm("B", "swing", d); setLeg("B", "march", d); }
+      else if (i.a === "jumping_jacks") { setArm("B", "jacks", d); setLeg("B", "jacks", d); setExpr("smile", d); }
+      else if (i.a === "run") { setArm("B", "runarm", d); setLeg("B", "run", d); }
+      else if (i.a === "boxing") { setArm("B", "punch", d); setLeg("B", "wide", d); }
+      else if (i.a === "squat") { setArm("B", "point", d * 0.8); setLeg("B", "squat", d * 0.75); }
+      else if (i.a === "robot_dance") { setArm("B", "robot", d); }
+      else if (i.a === "shrug") { setArm("B", "shrug", d); lookAt(0, 0, 0.3, d); setExpr("confused", d); }
+      else if (i.a === "flex") { setArm("B", "flex", d); setLeg("B", "wide", d); setExpr("smile", d); }
       else if (/^(back|front)(flip|roll)$/.test(i.a)) { setArm("B", i.a.endsWith("roll") ? "fold" : "cheer", d * 0.55); setLeg("B", "tuck", d * 0.65); if (A.exprName === "neutral") setExpr("surprised", 1.2); }
     } else if (i.k === "custom") {
       const v = a => V(+a[0] || 0, +a[1] || 0, +a[2] || 0).normalize();
@@ -434,6 +458,10 @@
       else if (a.n === "jump") jumpY = 0.26 * Math.abs(Math.sin(p * Math.PI * 2));
       else if (a.n === "dance") { swayY = 0.22 * Math.sin(t * 2.6); swayZ = 0.09 * Math.sin(t * 5.2); jumpY = 0.015 * Math.abs(Math.sin(t * 5.2)); }
       else if (a.n === "march") { swayZ = 0.03 * Math.sin(t * 5); }
+      else if (a.n === "jumping_jacks") { jumpY = 0.1 * Math.max(0, Math.sin(t * 7)); }
+      else if (a.n === "run") { jumpY = 0.035 * Math.abs(Math.sin(t * 9)); swayZ = 0.02 * Math.sin(t * 9); }
+      else if (a.n === "boxing") { swayY = 0.18 * Math.sin(t * 3.5); swayZ = 0.05 * Math.sin(t * 7); }
+      else if (a.n === "robot_dance") { swayY = 0.3 * (Math.floor(t * 2.2) % 2 ? 1 : -1); }
       else if (/^(back|front)(flip|roll)$/.test(a.n)) {                 // crouch, spring up, turn once round his middle, land
         const dir = a.n.startsWith("back") ? -1 : 1, roll = a.n.endsWith("roll"), c0 = 0.14, c1 = 0.86, q = clamp((p - c0) / (c1 - c0), 0, 1);
         flipX = dir * Math.PI * 2 * ease(q);
@@ -445,7 +473,8 @@
     const ya = A.yaw + 0.025 * Math.sin(t * 0.6) + swayY;
     yawG.rotation.y = ya; yawG.rotation.x = flipX;
     const offY = flipPy * (1 - Math.cos(flipX)), offZ = -flipPy * Math.sin(flipX);   // turn around his middle, not his feet
-    yawG.position.set(offZ * Math.sin(ya), 0.012 * Math.sin(t * 1.1) + jumpY + offY, offZ * Math.cos(ya));
+    const so = A.sqOff, sw = A.sqW || 0, ox = so ? so.x * sw : 0, oy = so ? so.y * sw : 0, oz = so ? so.z * sw : 0;   // squat: body goes down and back so the feet stay planted
+    yawG.position.set(offZ * Math.sin(ya) + ox * Math.cos(ya) + oz * Math.sin(ya), 0.012 * Math.sin(t * 1.1) + jumpY + offY + oy, offZ * Math.cos(ya) - ox * Math.sin(ya) + oz * Math.cos(ya));
     yawG.updateMatrixWorld(true);
 
     // ----- expressions blend toward their targets -----
@@ -519,6 +548,7 @@
     });
 
     // legs
+    let qx = 0, qy = 0, qz = 0, qn = 0;
     if (LEG.ok) ["R", "L"].forEach(s => {
       const a = A.legs[s], pr = clamp((sec - a.t0) / (a.until - a.t0 || 1), 0, 1);
       const tg = legPose(s, a.mode, t, pr), rd = LEG.rd[s];
@@ -526,11 +556,14 @@
       if (!c) c = A.curL[s] = { u: tg.u.clone(), f: tg.f.clone() };
       const k = 1 - Math.exp(-tg.k * dt);
       c.u.lerp(tg.u, k).normalize(); c.f.lerp(tg.f, k).normalize();
+      const Lg = LEG[s]; if (Lg) { qx += rd.u.x * Lg.TL + rd.f.x * Lg.CL - c.u.x * Lg.TL - c.f.x * Lg.CL; qy += rd.u.y * Lg.TL + rd.f.y * Lg.CL - c.u.y * Lg.TL - c.f.y * Lg.CL; qz += rd.u.z * Lg.TL + rd.f.z * Lg.CL - c.u.z * Lg.TL - c.f.z * Lg.CL; qn++; }
       if (a.mode === "idle" && c.u.dot(rd.u) > 0.99995 && c.f.dot(rd.f) > 0.99995) return;   // standing: leave the original pose alone
       aim(s + " Thigh", c.u);
       aim(s + " Calf", c.f);
       aim(s + " Foot", rd.foot.clone().applyQuaternion(new T.Quaternion().setFromUnitVectors(rd.f, c.f)));
     });
+    A.sqOff = qn ? { x: qx / qn, y: qy / qn, z: qz / qn } : null;
+    A.sqW = lerp(A.sqW || 0, A.legs.R.mode === "squat" && A.legs.L.mode === "squat" ? 1 : 0, 6);
     // the ball: sits at the foot, then flies off when it is kicked
     if (ball) {
       const b = A.ball;
@@ -635,7 +668,10 @@ body[data-s="think"] #avp .dot{background:#b07dff;box-shadow:0 0 8px #b07dff}
       ["Nod", "nod your head"], ["Shake head", "shake your head"], ["Look up", "look up"], ["Look down", "look down"], ["Look left", "look to your left"], ["Look right", "look to your right"],
       ["Tilt", "tilt your head"], ["Smile", "smile"], ["Surprised", "look surprised"], ["Sad", "look sad"], ["Confused", "look confused"], ["Turn around", "turn around"],
       ["Face me", "face me"], ["Turn left", "turn to the left"], ["Turn right", "turn to the right"], ["Sideways", "turn sideways"], ["Spin 360", "turn 360 degrees"],
-      ["Raise leg", "raise your right leg"], ["Kick ball", "kick a ball"], ["Hold head", "hold your head with one hand"], ["Both hands", "hold your head with both hands"], ["Dance", "dance"], ["Jump", "jump"], ["Back flip", "do a back flip"], ["Front flip", "do a front flip"], ["Back roll", "do a back roll"], ["Front roll", "do a front roll"], ["Clap", "clap your hands"], ["Hands on hips", "hands on hips"], ["Bow", "take a bow"], ["March", "march in place"]];
+      ["Raise leg", "raise your right leg"], ["Kick ball", "kick a ball"], ["Hold head", "hold your head with one hand"], ["Both hands", "hold your head with both hands"], ["Dance", "dance"], ["Jump", "jump"], ["Back flip", "do a back flip"], ["Front flip", "do a front flip"], ["Back roll", "do a back roll"], ["Front roll", "do a front roll"], ["Clap", "clap your hands"], ["Hands on hips", "hands on hips"], ["Bow", "take a bow"], ["March", "march in place"],
+      ["Heart", "put your hand on your heart"], ["Think", "do a thinking pose"], ["Flex", "flex your muscles"], ["Stop sign", "show me a stop sign"], ["Wings", "spread your arms like an airplane"], ["Come here", "come here"],
+      ["Hug", "give me a hug"], ["Shrug", "shrug"], ["Jacks", "do jumping jacks"], ["Run", "run in place"], ["Boxing", "do some boxing"], ["Squat", "do a squat"], ["Robot", "do the robot dance"],
+      ["Stomp", "stomp your feet"], ["Legs wide", "spread your legs apart"]];
     wrap.innerHTML = `<div class="pill" id="avt"><i class="dot"></i><span id="avs">loading</span></div><div class="box"><button type="button" class="g" id="avfocus" style="width:100%;margin-bottom:.4rem"></button><form id="avf"><input id="avi" placeholder="Type a command…" autocomplete="off"><button class="g">Go</button></form><div class="grid">` +
       G.map(g => `<button type="button" class="g" data-c="${g[1]}">${g[0]}</button>`).join("") + `</div></div>`;
     document.body.append(wrap);
