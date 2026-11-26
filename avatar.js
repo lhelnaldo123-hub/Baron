@@ -28,6 +28,8 @@
 
   let T, scene, camera, renderer, yawG, fixG, bones = {}, rest = {}, H = 1.75, uTime = { value: 0 };
   let cv, last = 0, t0 = performance.now();
+  let ball = null;                                       // the hologram ball for "kick a ball"
+  const LEG = { ok: false, R: null, L: null, rd: { R: null, L: null } };
   const A = { // controller state
     yaw: 0, yawTarget: 0, spinLeft: 0,
     arms: { R: { mode: "idle", until: 0, t0: 0 }, L: { mode: "idle", until: 0, t0: 0 } },
@@ -37,6 +39,8 @@
     expr: { smile: 0, surprise: 0, sad: 0, confused: 0 }, exprName: "neutral", exprUntil: 0,
     blink: 0, nextBlink: 2, blinkT: -1,
     eye: { x: 0, y: 0, tx: 0, ty: 0, next: 1 },
+    legs: { R: { mode: "idle", until: 0, t0: 0 }, L: { mode: "idle", until: 0, t0: 0 } }, curL: { R: null, L: null },
+    queue: [], act: null, ball: null, busyUntil: 0, pendingDone: false, awaitingUntil: 0, quiet: false,
     nextBeat: 4, mouth: { open: 0, round: 0, wide: 0 }, breathe: 0, cmdUntil: 0
   };
 
@@ -73,6 +77,7 @@
     buildStage();
     if (CFG.logo) buildLogo();
     snapshotRest();
+    legSetup();
     resize(); addEventListener("resize", resize);
   }
 
@@ -155,10 +160,12 @@
   //  rotations at run time, so it works whatever the model's own bone axes are.
   //  Frame: +Y up, +Z forward (toward the viewer), +X = the character's LEFT, -X = his RIGHT.
   // =====================================================================================
-  const AIM = { "R UpperArm": "R Forearm", "R Forearm": "R Hand", "R Hand": "R Finger2", "L UpperArm": "L Forearm", "L Forearm": "L Hand", "L Hand": "L Finger2" };
+  const AIM = { "R UpperArm": "R Forearm", "R Forearm": "R Hand", "R Hand": "R Finger2", "L UpperArm": "L Forearm", "L Forearm": "L Hand", "L Hand": "L Finger2",
+    "R Thigh": "R Calf", "R Calf": "R Foot", "R Foot": "R Toe0", "L Thigh": "L Calf", "L Calf": "L Foot", "L Foot": "L Toe0" };
   const DRIVEN = ["Pelvis", "Spine", "Spine1", "Spine2", "Neck", "Head", "REye", "LEye", "MJaw", "MBottomLip", "MUpperLip", "RMouthCorner", "LMouthCorner", "RCheek", "LCheek",
     "REyeBlinkTop", "LEyeBlinkTop", "REyeBlinkBottom", "LEyeBlinkBottom", "RInnerEyebrow", "LInnerEyebrow", "ROuterEyebrow", "LOuterEyebrow", "MMiddleEyebrow",
-    "R UpperArm", "R Forearm", "R Hand", "L UpperArm", "L Forearm", "L Hand"];
+    "R UpperArm", "R Forearm", "R Hand", "L UpperArm", "L Forearm", "L Hand",
+    "R Thigh", "R Calf", "R Foot", "L Thigh", "L Calf", "L Foot"];
 
   function snapshotRest() {
     scene.updateMatrixWorld(true);
@@ -168,6 +175,20 @@
       if (AIM[n] && B(AIM[n])) r.dir = B(AIM[n]).getWorldPosition(new T.Vector3()).sub(b.getWorldPosition(new T.Vector3())).normalize();
       rest[n] = r;
     });
+  }
+  // leg lengths + rest directions (so legs can be aimed like arms), and the ball
+  function legSetup() {
+    try {
+      LEG.ok = ["R", "L"].every(s => B(s + " Thigh") && B(s + " Calf") && B(s + " Foot") && rest[s + " Thigh"] && rest[s + " Thigh"].dir && rest[s + " Calf"] && rest[s + " Calf"].dir && rest[s + " Foot"] && rest[s + " Foot"].dir);
+      if (!LEG.ok) return;
+      ["R", "L"].forEach(s => {
+        const pt = B(s + " Thigh").getWorldPosition(new T.Vector3()), pc = B(s + " Calf").getWorldPosition(new T.Vector3()), pf = B(s + " Foot").getWorldPosition(new T.Vector3());
+        LEG[s] = { hip: yawG.worldToLocal(pt.clone()), TL: pt.distanceTo(pc), CL: pc.distanceTo(pf) };
+        LEG.rd[s] = { u: rest[s + " Thigh"].dir.clone(), f: rest[s + " Calf"].dir.clone(), foot: rest[s + " Foot"].dir.clone() };
+      });
+      ball = new T.Mesh(new T.SphereGeometry(0.11, 14, 10), new T.MeshBasicMaterial({ color: 0x7fe3ff, wireframe: true, transparent: true, opacity: 0.9, depthWrite: false }));
+      ball.visible = false; yawG.add(ball);
+    } catch (e) { LEG.ok = false; }
   }
   let tq1, tq2, tv1, tv2;
   function temps() { tq1 = new T.Quaternion(); tq2 = new T.Quaternion(); tv1 = new T.Vector3(); tv2 = new T.Vector3(); }
@@ -220,9 +241,46 @@
       case "palms":   return { u: V(sx * 0.3, -0.72, 0.3), f: V(sx * 0.15, -0.12, 1), roll: -sx * CFG.palmRoll, k: 4 };
       case "open":    return { u: V(sx * 0.7, -0.55, 0.15), f: V(sx * 0.75, -0.25, 0.55), roll: -sx * 0.7, k: 4 };
       case "move":    return { u: V(sx * (0.3 + 0.2 * s(t * 2.4)), -0.4 + 0.5 * s(t * 1.7 + 1), 0.3 + 0.3 * c(t * 2.1)), f: V(sx * 0.2, -0.3 + 0.4 * s(t * 2.4), 0.8), roll: 0, k: 5 };
+      case "head":    return { u: V(sx * 0.7, 0.55, 0.1), f: V(-sx * 0.97, 0.12, 0.2), roll: 0, k: 6 };               // hand on the side of the head
+      case "hips":    return { u: V(sx * 0.55, -0.8, -0.1), f: V(-sx * 0.7, -0.7, 0.15), roll: 0, k: 5 };
+      case "salute":  return { u: V(sx * 0.75, 0.45, 0.15), f: V(-sx * 0.55, 0.75, 0.35), roll: 0, k: 6 };
+      case "clap":    return { u: V(sx * 0.15, -0.55, 0.8), f: V(-sx * (0.58 + 0.22 * s(t * 12)), 0.15, 0.95), roll: 0, k: 14 };
+      case "cheer":   return { u: V(sx * (0.55 + 0.08 * s(t * 8)), 0.8, 0.1), f: V(sx * 0.6, 0.85 + 0.1 * s(t * 8), 0.1), roll: 0, k: 7 };
+      case "dance":   { const ph = side === "R" ? 0 : Math.PI; return { u: V(sx * 0.7, 0.2 + 0.6 * s(t * 5 + ph), 0.2), f: V(sx * 0.3, 0.9, 0.3 + 0.3 * c(t * 5 + ph)), roll: 0, k: 8 }; }
+      case "swing":   { const ph = side === "R" ? 0 : Math.PI; return { u: V(sx * 0.12, -0.9, 0.45 * s(t * 5 + ph)), f: V(sx * 0.1, -0.7, 0.7 + 0.3 * s(t * 5 + ph)), roll: 0, k: 9 }; }
+      case "custom":  { const a = A.arms[side]; if (a.cu && a.cf) return { u: a.cu.clone(), f: a.cf.clone(), roll: 0, k: 6 }; return armPose(side, "idle", t, p); }
       case "beat":    { const e = s(Math.PI * clamp(p, 0, 1)); return { u: V(sx * 0.22, -0.78 + 0.1 * e, 0.28), f: V(sx * 0.15, -0.35 + 0.5 * e + 0.12 * s(t * 5), 1), roll: -sx * 0.4 * e, k: 6 }; }
       default: { const br = A.breathe; return { u: V(sx * (0.1 + 0.01 * br), -1, 0.02), f: V(sx * 0.07, -1, 0.34), roll: 0, k: 5 }; }
     }
+  }
+
+  // leg poses (same idea as arms). sx = which side the leg is on. Kick uses key frames: wind up, strike, follow through.
+  const KICK = [[0, null, null], [0.28, [0.05, -0.78, -0.6], [0.05, -0.05, -1]], [0.48, [0.05, -0.88, 0.48], [0.05, -0.9, 0.43]], [0.62, [0.05, 0.1, 1], [0.05, 0.25, 1]], [0.8, [0.05, 0.1, 1], [0.05, 0.25, 1]], [1, null, null]];
+  function kickAt(side, p) {
+    const sx = side === "R" ? -1 : 1, rd = LEG.rd[side], fr = KICK.map(k => ({ p: k[0], u: k[1] ? V(sx * k[1][0], k[1][1], k[1][2]) : rd.u.clone(), f: k[2] ? V(sx * k[2][0], k[2][1], k[2][2]) : rd.f.clone() }));
+    let i = 0; while (i < fr.length - 2 && p > fr[i + 1].p) i++;
+    const a = fr[i], b = fr[i + 1], e = ease(clamp((p - a.p) / (b.p - a.p), 0, 1));
+    return { u: a.u.clone().lerp(b.u, e).normalize(), f: a.f.clone().lerp(b.f, e).normalize() };
+  }
+  function legPose(side, mode, t, p) {
+    const sx = side === "R" ? -1 : 1, s = Math.sin, ph = side === "R" ? 0 : Math.PI, rd = LEG.rd[side];
+    switch (mode) {
+      case "knee":  return { u: V(sx * 0.06, 0.12, 1), f: V(sx * 0.05, -1, 0.12), k: 6 };         // knee up, shin hanging
+      case "front": return { u: V(sx * 0.1, 0.5, 1), f: V(sx * 0.1, 0.5, 1), k: 5 };               // leg straight out in front
+      case "side":  return { u: V(sx, 0.3, 0), f: V(sx * 0.95, -0.1, 0), k: 5 };                  // leg out to the side
+      case "back":  return { u: V(0, -0.85, -0.5), f: V(0, -0.15, -1), k: 5 };
+      case "tuck":  return { u: V(sx * 0.05, -0.55, 0.8), f: V(sx * 0.05, -0.9, -0.4), k: 6 };
+      case "kick":  { const k = kickAt(side, p); return { u: k.u, f: k.f, k: 16 }; }
+      case "march": { const l = Math.max(0, s(t * 5 + ph)); return { u: V(sx * 0.05, -1 + 1.1 * l, 0.9 * l), f: V(sx * 0.05, -1, 0.1 * l), k: 10 }; }
+      case "step":  { const l = Math.max(0, s(t * 5 + ph)); return { u: V(sx * (0.05 + 0.25 * l), -1 + 0.5 * l, 0.3 * l), f: V(sx * 0.05, -1, -0.15 * l), k: 9 }; }
+      case "jump":  { const e = Math.abs(s(p * Math.PI * 2)); return { u: V(sx * 0.08, -1 + 0.55 * e, 0.7 * e), f: V(sx * 0.05, -1 + 0.1 * e, -0.9 * e), k: 9 }; }
+      case "custom": { const a = A.legs[side]; if (a.cu && a.cf) return { u: a.cu.clone(), f: a.cf.clone(), k: 6 }; break; }
+    }
+    return { u: rd.u, f: rd.f, k: 5 };
+  }
+  function setLeg(side, mode, secs, cu, cf) {
+    const now = performance.now() / 1000;
+    (side === "B" ? ["R", "L"] : [side]).forEach(s => { const a = A.legs[s]; a.mode = mode; a.t0 = now; a.until = secs ? now + secs : 0; a.cu = cu || null; a.cf = cf || null; });
   }
 
   function setArm(side, mode, secs) {
@@ -233,33 +291,69 @@
   function headGesture(a, secs) { const n = performance.now() / 1000; A.headGest = { a, t0: n, until: n + secs }; }
   function lookAt(yaw, pitch, tilt, secs = 3) { A.lookT = { yaw, pitch, tilt }; A.lookUntil = performance.now() / 1000 + secs; }
 
-  function exec(intents) {
-    let n = 0;
+  // how long each new move lasts (seconds) before the body goes back to normal
+  const AHOLD = { wave: 3.6, point: 3.5, move: 4.5, head: 5, hips: 5, salute: 4, clap: 4, cheer: 4 };
+  const LHOLD = { knee: 5, front: 5, side: 5, back: 5, tuck: 4, kick: 2.4, march: 5, step: 5, jump: 2.4 };
+  const ACT = { jump: 2.4, dance: 6, march: 5, bow: 2.8 };
+  const durOf = i => i.secs || (i.k === "arm" ? (AHOLD[i.pose] || 2) : i.k === "leg" ? (i.pose === "down" ? 1.5 : (LHOLD[i.pose] || 2)) : i.k === "act" ? (ACT[i.a] || 3) : i.k === "custom" ? 4 : i.k === "turn" && i.by ? 2.8 : 2);
+
+  function run1(i, now) {
+    if (i.k === "arm") {
+      const hold = i.secs || AHOLD[i.pose] || 0;
+      setArm(i.side, i.pose === "down" ? "idle" : i.pose, hold);
+      if (i.pose === "wave" && A.exprName === "neutral") setExpr("smile", 4);
+      if (i.pose === "cheer" && A.exprName === "neutral") setExpr("smile", 4);
+    } else if (i.k === "leg") {
+      if (!LEG.ok) return;
+      const hold = i.secs || LHOLD[i.pose] || 0;
+      setLeg(i.side, i.pose === "down" ? "idle" : i.pose, hold);
+      if (i.pose === "kick") {
+        const s = i.side === "L" ? "L" : "R", L = LEG[s], k = kickAt(s, 0.48);
+        if (i.ball !== false) A.ball = { t0: now, dur: hold, sx: s === "R" ? -1 : 1, start: L.hip.clone().addScaledVector(k.u, L.TL).addScaledVector(k.f, L.CL).add(V(0, 0.05, 0.08)) };
+        if (A.exprName === "neutral") setExpr("smile", 3);
+      }
+    } else if (i.k === "act") {
+      const d = ACT[i.a] || 3;
+      A.act = { n: i.a, t0: now, until: now + d };
+      if (i.a === "jump") { setArm("B", "cheer", d); setLeg("B", "jump", d); }
+      else if (i.a === "dance") { setArm("B", "dance", d); setLeg("B", "step", d); setExpr("smile", d); }
+      else if (i.a === "march") { setArm("B", "swing", d); setLeg("B", "march", d); }
+    } else if (i.k === "custom") {
+      const v = a => V(+a[0] || 0, +a[1] || 0, +a[2] || 0).normalize();
+      const hold = i.secs || 4;
+      if (i.limb === "arm") { setArm(i.side, "custom", hold); (i.side === "B" ? ["R", "L"] : [i.side]).forEach(s => { A.arms[s].cu = v(i.u); A.arms[s].cf = v(i.f); }); }
+      else if (LEG.ok) setLeg(i.side, "custom", hold, v(i.u), v(i.f));
+    } else if (i.k === "head") {
+      if (i.a === "nod") headGesture("nod", 1.8);
+      else if (i.a === "shake") headGesture("shake", 1.8);
+      else if (i.a === "up") lookAt(0, 0.42, 0);
+      else if (i.a === "down") lookAt(0, -0.4, 0);
+      else if (i.a === "left") lookAt(0.6, 0, 0);
+      else if (i.a === "right") lookAt(-0.6, 0, 0);
+      else if (i.a === "tilt") lookAt(0, 0, 0.3, 4);
+      else lookAt(0, 0, 0, 0);
+    } else if (i.k === "face") {
+      setExpr(i.e, i.e === "neutral" ? 0 : 7);
+    } else if (i.k === "turn") {
+      const cur = A.yawTarget;
+      if (i.by) { A.yawTarget = cur + (i.by * Math.PI) / 180; A.spinReset = true; }
+      else if (i.to === "flip") A.yawTarget = Math.cos(cur) > 0 ? nearest(cur, Math.PI) : nearest(cur, 0);
+      else A.yawTarget = nearest(cur, (i.to * Math.PI) / 180);
+    }
+  }
+
+  // runs the moves (some can start later, "now with two"). When everything has finished the app says "Done, what else?"
+  function exec(intents, silent) {
+    const now = performance.now() / 1000;
+    let n = 0, end = now + 1.6;
     intents.forEach(i => {
       n++;
-      if (i.k === "arm") {
-        const timed = { wave: 3.6, point: 3.5, move: 4.5 }[i.pose];
-        setArm(i.side, i.pose === "down" ? "idle" : i.pose, timed || 0);
-        if (i.pose === "wave" && A.exprName === "neutral") setExpr("smile", 4);
-      } else if (i.k === "head") {
-        if (i.a === "nod") headGesture("nod", 1.8);
-        else if (i.a === "shake") headGesture("shake", 1.8);
-        else if (i.a === "up") lookAt(0, 0.42, 0);
-        else if (i.a === "down") lookAt(0, -0.4, 0);
-        else if (i.a === "left") lookAt(0.6, 0, 0);
-        else if (i.a === "right") lookAt(-0.6, 0, 0);
-        else if (i.a === "tilt") lookAt(0, 0, 0.3, 4);
-        else lookAt(0, 0, 0, 0);
-      } else if (i.k === "face") {
-        setExpr(i.e, i.e === "neutral" ? 0 : 7);
-      } else if (i.k === "turn") {
-        const cur = A.yawTarget;
-        if (i.by) { A.yawTarget = cur + (i.by * Math.PI) / 180; A.spinReset = true; }
-        else if (i.to === "flip") A.yawTarget = Math.cos(cur) > 0 ? nearest(cur, Math.PI) : nearest(cur, 0);
-        else A.yawTarget = nearest(cur, (i.to * Math.PI) / 180);
-      }
+      const d = Math.max(0, Math.min(25, +i.delay || 0));
+      end = Math.max(end, now + d + durOf(i));
+      if (d > 0) A.queue.push({ at: now + d, i }); else run1(i, now);
     });
-    A.cmdUntil = performance.now() / 1000 + 2;
+    A.cmdUntil = now + 2;
+    if (!silent) { A.busyUntil = Math.max(A.busyUntil, end + 0.4); A.pendingDone = true; A.awaitingUntil = 0; }
     return n;
   }
   // pick the equivalent angle closest to where he is now, so he never spins the long way round
@@ -310,6 +404,12 @@
 
     // ----- timers: gestures finish and fall back to idle -----
     ["R", "L"].forEach(s => { const a = A.arms[s]; if (a.until && sec > a.until) { a.mode = "idle"; a.until = 0; } });
+    ["R", "L"].forEach(s => { const a = A.legs[s]; if (a.until && sec > a.until) { a.mode = "idle"; a.until = 0; } });
+    if (A.queue.length) A.queue = A.queue.filter(q => { if (q.at <= sec) { run1(q.i, sec); return false; } return true; });
+    if (A.pendingDone && sec > A.busyUntil && !A.queue.length) {          // everything finished: tell the user, ask what next
+      A.pendingDone = false; A.awaitingUntil = sec + 45;
+      try { window.jvAvatarDone && window.jvAvatarDone(); } catch (e) {}
+    }
     if (A.headGest.a && sec > A.headGest.until) A.headGest.a = "";
     if (A.lookUntil && sec > A.lookUntil) { A.lookT = { yaw: 0, pitch: 0, tilt: 0 }; A.lookUntil = 0; }
     if (A.exprUntil && sec > A.exprUntil) { A.exprName = "neutral"; A.exprUntil = 0; }
@@ -325,8 +425,18 @@
     A.yaw = lerp(A.yaw, A.yawTarget, 3.2);
     if (A.spinReset && Math.abs(A.yawTarget - A.yaw) < 0.03) { const w = Math.round(A.yawTarget / 6.2832) * 6.2832; A.yawTarget -= w; A.yaw -= w; A.spinReset = false; }
     A.breathe = Math.sin(t * 1.5);
-    yawG.rotation.y = A.yaw + 0.025 * Math.sin(t * 0.6);
-    yawG.position.y = 0.012 * Math.sin(t * 1.1);
+    // whole-body moves (jump, dance, bow) are programs that run for a few seconds
+    let jumpY = 0, swayY = 0, swayZ = 0, bow = 0;
+    if (A.act) {
+      const a = A.act, p = clamp((sec - a.t0) / (a.until - a.t0), 0, 1);
+      if (sec > a.until) A.act = null;
+      else if (a.n === "jump") jumpY = 0.26 * Math.abs(Math.sin(p * Math.PI * 2));
+      else if (a.n === "dance") { swayY = 0.22 * Math.sin(t * 2.6); swayZ = 0.09 * Math.sin(t * 5.2); jumpY = 0.015 * Math.abs(Math.sin(t * 5.2)); }
+      else if (a.n === "march") { swayZ = 0.03 * Math.sin(t * 5); }
+      else if (a.n === "bow") bow = 0.8 * (p < 0.35 ? ease(p / 0.35) : p < 0.62 ? 1 : ease((1 - p) / 0.38));
+    }
+    yawG.rotation.y = A.yaw + 0.025 * Math.sin(t * 0.6) + swayY;
+    yawG.position.y = 0.012 * Math.sin(t * 1.1) + jumpY;
     yawG.updateMatrixWorld(true);
 
     // ----- expressions blend toward their targets -----
@@ -375,13 +485,14 @@
     scene.updateMatrixWorld(true);
 
     // body: breathing and weight shift
-    rotate("Pelvis", Q(Z, 0.012 * Math.sin(t * 0.5)));
-    rotate("Spine", Q(Z, -0.008 * Math.sin(t * 0.5)));
-    rotate("Spine2", Q(X, -0.014 * A.breathe));
+    rotate("Pelvis", Q(Z, 0.012 * Math.sin(t * 0.5) + swayZ));
+    rotate("Spine", Q(Z, -0.008 * Math.sin(t * 0.5) - swayZ * 0.5).multiply(Q(X, bow * 0.3)));
+    if (bow) rotate("Spine1", Q(X, bow * 0.62));
+    rotate("Spine2", Q(X, -0.014 * A.breathe + bow));
     // neck + head share the turn
     const hq = Q(Y, hy).multiply(Q(X, -hp)).multiply(Q(Z, ht));
-    rotate("Neck", new T.Quaternion().slerp(hq, 0.4));
-    rotate("Head", new T.Quaternion().slerp(hq, 0.6));
+    rotate("Neck", Q(X, bow * 0.95).multiply(new T.Quaternion().slerp(hq, 0.4)));
+    rotate("Head", Q(X, bow * 1.05).multiply(new T.Quaternion().slerp(hq, 0.6)));
     rotate("REye", Q(Y, A.eye.x).multiply(Q(X, -A.eye.y)));
     rotate("LEye", Q(Y, A.eye.x).multiply(Q(X, -A.eye.y)));
 
@@ -397,6 +508,36 @@
       aim(s + " Forearm", c.f, c.roll);
       aim(s + " Hand", c.f, c.roll);
     });
+
+    // legs
+    if (LEG.ok) ["R", "L"].forEach(s => {
+      const a = A.legs[s], pr = clamp((sec - a.t0) / (a.until - a.t0 || 1), 0, 1);
+      const tg = legPose(s, a.mode, t, pr), rd = LEG.rd[s];
+      let c = A.curL[s];
+      if (!c) c = A.curL[s] = { u: tg.u.clone(), f: tg.f.clone() };
+      const k = 1 - Math.exp(-tg.k * dt);
+      c.u.lerp(tg.u, k).normalize(); c.f.lerp(tg.f, k).normalize();
+      if (a.mode === "idle" && c.u.dot(rd.u) > 0.99995 && c.f.dot(rd.f) > 0.99995) return;   // standing: leave the original pose alone
+      aim(s + " Thigh", c.u);
+      aim(s + " Calf", c.f);
+      aim(s + " Foot", rd.foot.clone().applyQuaternion(new T.Quaternion().setFromUnitVectors(rd.f, c.f)));
+    });
+    // the ball: sits at the foot, then flies off when it is kicked
+    if (ball) {
+      const b = A.ball;
+      if (!b) ball.visible = false;
+      else {
+        const p = (sec - b.t0) / b.dur, KC = 0.48;
+        if (p > 1.1) { A.ball = null; ball.visible = false; }
+        else if (p < KC) { ball.visible = true; ball.position.copy(b.start); ball.material.opacity = 0.9 * clamp(p / 0.1, 0, 1); }
+        else {
+          const tf = (p - KC) * b.dur;
+          if (tf > 0.65) ball.visible = false;
+          else { ball.visible = true; ball.material.opacity = 0.9 * clamp((0.65 - tf) / 0.15, 0, 1); ball.position.set(b.start.x, b.start.y + 1.6 * tf - 2.5 * tf * tf, b.start.z + 2.2 * tf); }
+        }
+        ball.rotation.x += 9 * dt;
+      }
+    }
 
     if (CFG.faceBones) face(t, f);
     if (A.logo) A.logo.visible = true;
@@ -484,7 +625,8 @@ body[data-s="think"] #avp .dot{background:#b07dff;box-shadow:0 0 8px #b07dff}
       ["Point", "point at me"], ["Fold arms", "fold your arms"], ["Stretch", "stretch your arms"], ["Palms", "show me your palms"], ["Open arms", "open your arms"], ["Move arm", "move your right arm"],
       ["Nod", "nod your head"], ["Shake head", "shake your head"], ["Look up", "look up"], ["Look down", "look down"], ["Look left", "look to your left"], ["Look right", "look to your right"],
       ["Tilt", "tilt your head"], ["Smile", "smile"], ["Surprised", "look surprised"], ["Sad", "look sad"], ["Confused", "look confused"], ["Turn around", "turn around"],
-      ["Face me", "face me"], ["Turn left", "turn to the left"], ["Turn right", "turn to the right"], ["Sideways", "turn sideways"], ["Spin 360", "turn 360 degrees"]];
+      ["Face me", "face me"], ["Turn left", "turn to the left"], ["Turn right", "turn to the right"], ["Sideways", "turn sideways"], ["Spin 360", "turn 360 degrees"],
+      ["Raise leg", "raise your right leg"], ["Kick ball", "kick a ball"], ["Hold head", "hold your head with one hand"], ["Both hands", "hold your head with both hands"], ["Dance", "dance"], ["Jump", "jump"], ["Clap", "clap your hands"], ["Hands on hips", "hands on hips"], ["Bow", "take a bow"], ["March", "march in place"]];
     wrap.innerHTML = `<div class="pill" id="avt"><i class="dot"></i><span id="avs">loading</span></div><div class="box"><button type="button" class="g" id="avfocus" style="width:100%;margin-bottom:.4rem"></button><form id="avf"><input id="avi" placeholder="Type a command…" autocomplete="off"><button class="g">Go</button></form><div class="grid">` +
       G.map(g => `<button type="button" class="g" data-c="${g[1]}">${g[0]}</button>`).join("") + `</div></div>`;
     document.body.append(wrap);
@@ -505,19 +647,52 @@ body[data-s="think"] #avp .dot{background:#b07dff;box-shadow:0 0 8px #b07dff}
     get state() { return state.anim; },
     cfg: CFG,
     run(text) { return state.ready ? say(text, true) : false; },
-    greet() { if (!state.ready) return; exec([{ k: "arm", pose: "wave", side: "R" }, { k: "face", e: "smile" }]); },
+    greet() { if (!state.ready) return; exec([{ k: "arm", pose: "wave", side: "R" }, { k: "face", e: "smile" }], true); },
+    // a move described by the AI: { arm_right, arm_left, leg_right, leg_left, action, head, face, seconds, delay, custom:[{limb,side,upper,lower}] }
+    pose(a) {
+      if (!state.ready || !a) return false;
+      const d = +a.delay || 0, secs = +a.seconds || 0, out = [], put = o => out.push({ ...o, delay: d });
+      if (a.arm_right) put({ k: "arm", pose: a.arm_right, side: "R", secs });
+      if (a.arm_left) put({ k: "arm", pose: a.arm_left, side: "L", secs });
+      if (a.leg_right) put({ k: "leg", pose: a.leg_right, side: "R", secs, ball: a.leg_right === "kick" && a.ball !== false });
+      if (a.leg_left) put({ k: "leg", pose: a.leg_left, side: "L", secs, ball: a.leg_left === "kick" && a.ball !== false });
+      const act = a.action_type;
+      if (act) {
+        if (act === "kick_ball") put({ k: "leg", pose: "kick", side: a.side === "L" ? "L" : "R", ball: true });
+        else if (act === "clap") put({ k: "arm", pose: "clap", side: "B", secs });
+        else if (act === "cheer") put({ k: "arm", pose: "cheer", side: "B", secs });
+        else put({ k: "act", a: act });
+      }
+      if (a.head) put({ k: "head", a: a.head });
+      if (a.face) put({ k: "face", e: a.face });
+      (Array.isArray(a.custom) ? a.custom : []).slice(0, 4).forEach(c => {
+        const m = /^(right|left)_(arm|leg)$/.exec(String(c.limb || ""));
+        if (m && Array.isArray(c.upper) && Array.isArray(c.lower)) put({ k: "custom", limb: m[2], side: m[1] === "right" ? "R" : "L", u: c.upper, f: c.lower, secs });
+      });
+      return out.length ? exec(out) > 0 : false;
+    },
     gesture(name) { return this.run(name); },
-    stop() { setArm("B", "idle"); A.headGest.a = ""; A.lookUntil = 0; setExpr("neutral", 0); A.yawTarget = nearest(A.yaw, 0); }
+    stop() { setArm("B", "idle"); setLeg("B", "idle", 0); A.act = null; A.ball = null; A.queue = []; A.pendingDone = false; A.headGest.a = ""; A.lookUntil = 0; setExpr("neutral", 0); A.yawTarget = nearest(A.yaw, 0); }
   };
   window.Avatar = api;
 
   // the app calls these: spoken/typed commands (skips the AI for short body commands) and AI tool actions
   window.jvCommand = text => {
-    if (!state.ready || !say(text, false)) return false;
-    try { window.jvConfirm && window.jvConfirm(); } catch (e) {}
-    return true;
+    if (!state.ready) return false;
+    const P = window.AvatarCmd;
+    // after "Done, what else?": "ok" / "that's all" means stop
+    if (A.awaitingUntil > performance.now() / 1000 && P && P.isStop && P.isStop(text)) {
+      api.stop(); A.awaitingUntil = 0; A.pendingDone = false;
+      try { window.jvAvatarOk && window.jvAvatarOk(); } catch (e) {}
+      return true;
+    }
+    return say(text, false);          // the "Done" is spoken when the move really finishes (see exec)
   };
-  window.jvActions = list => (list || []).forEach(a => { if (a && a.action === "avatar" && a.command) api.run(a.command); });
+  window.jvActions = list => (list || []).forEach(a => {
+    if (!a) return;
+    if (a.action === "avatar" && a.command) api.run(a.command);
+    else if (a.action === "avatar_pose") api.pose(a);
+  });
 
   document.readyState === "loading" ? document.addEventListener("DOMContentLoaded", ui) : ui();
   boot().then(() => {
