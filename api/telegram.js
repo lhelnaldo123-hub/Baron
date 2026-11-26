@@ -3,6 +3,7 @@
 const crypto = require("crypto");
 const mail = require("./_gmail");
 const brain = require("./_brain");
+const store = require("./_store");
 
 const token = () => process.env.TELEGRAM_BOT_TOKEN;
 const API = () => `https://api.telegram.org/bot${token()}`;
@@ -103,6 +104,7 @@ async function onButton(q) {
   if (!data.startsWith("send:")) return tg("answerCallbackQuery", { callback_query_id: q.id });
   try {
     await mail.sendDraft(data.slice(5));
+    if (String(await store.get("pending", "")) === data.slice(5)) await store.set("pending", "");
     await tg("answerCallbackQuery", { callback_query_id: q.id, text: "Sent" });
     if (q.message) {
       await tg("editMessageReplyMarkup", { chat_id: q.message.chat.id, message_id: q.message.message_id, reply_markup: { inline_keyboard: [] } });
