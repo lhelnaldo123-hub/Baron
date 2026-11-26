@@ -334,7 +334,13 @@ const TYPES = [["audio/webm;codecs=opus", "webm"], ["audio/mp4", "mp4"], ["audio
 const [mime, ext] = TYPES.find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t[0])) || ["", "webm"];
 
 let state = "idle", on = false, paused = false, ctx, micAn, outAn, stream, rec, chunks = [];
-let speechStart = 0, lastVoice = 0;
+let speechStart = 0, lastVoice = 0, floorL = 0.03, loudSince = 0, spk = 0;
+/* Focus mode: only the voice close to the phone counts. 0 = off, 1 = normal, 2 = strong (noisy room).
+   It learns the room noise, ignores quieter far-away voices, and ends your turn when YOUR level drops (not when the room does). */
+const FOCUS = [{ k: 0, min: 0, rel: 0 }, { k: 2.2, min: 120, rel: .35 }, { k: 3.2, min: 180, rel: .5 }];
+let focusMode = 1; try { const f = localStorage.getItem("jv-focus"); if (f !== null) focusMode = Math.min(2, Math.max(0, parseInt(f, 10) || 0)); } catch (e) {}
+window.jvGetFocus = () => focusMode;
+window.jvSetFocus = m => { focusMode = Math.min(2, Math.max(0, m | 0)); floorL = 0.03; try { localStorage.setItem("jv-focus", focusMode); } catch (e) {} return focusMode; };
 const load = k => { try { return JSON.parse(localStorage.getItem(k)) || []; } catch (e) { return []; } };
 const save = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const LANGS = [["", "Auto-detect"], ["en", "English"], ["es", "Spanish"], ["fr", "French"], ["de", "German"], ["pt", "Portuguese"],
@@ -392,7 +398,7 @@ function levelOf(b64) {                   // how much to lift or lower this clip
       var d = buf.getChannelData(0), n = d.length, step = Math.max(1, Math.floor(n / 20000)), sum = 0, c = 0;
       for (var k = 0; k < n; k += step) { sum += d[k] * d[k]; c++; }
       var rms = Math.sqrt(sum / (c || 1));
-      return rms > 0.001 ? Math.max(0.5, Math.min(4, 0.12 / rms)) : 1;
+      return rms > 0.001 ? Math.max(0.8, Math.min(4, 0.14 / rms)) : 1;
     }).catch(function () { return 1; });
   } catch (e) { return Promise.resolve(1); }
 }
@@ -403,16 +409,22 @@ function initAudio() {                      // voice goes: player -> (meter) -> 
   ctx.createMediaElementSource(player).connect(outAn);
   gainNode = ctx.createGain(); applyVol();
   const lim = ctx.createDynamicsCompressor();
+  lim.threshold.value = -10; lim.knee.value = 8; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15;   // loud but never crackly
   outAn.connect(gainNode); gainNode.connect(lim); lim.connect(ctx.destination);
+  ctx.onstatechange = () => { if (ctx.state !== "running") ctx.resume().catch(() => {}); };           // phones sometimes pause the sound engine, which makes the voice quiet or silent
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) ctx.resume().catch(() => {}); });
 }
 async function begin() {
   try {
     initAudio();
     await ctx.resume();
     player.src = SILENCE; player.play().catch(() => {}); // unlocks audio on iPhone
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, voiceIsolation: true } });
     micAn = ctx.createAnalyser(); micAn.fftSize = 1024;
-    ctx.createMediaStreamSource(stream).connect(micAn);
+    const src = ctx.createMediaStreamSource(stream);        // the detector only listens to the human voice range (no rumble, hiss or music highs)
+    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 160;
+    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3400;
+    src.connect(hp); hp.connect(lp); lp.connect(micAn);
     on = true; paused = false; lastT = performance.now(); ensureFx(); listen(); tick();
   } catch (e) {
     set("idle", "Microphone blocked. Allow mic access and tap again.");
@@ -580,11 +592,17 @@ function tick() {
 
   if (!paused) {
     if (state === "listen") {
-      if (mic > (fxPlaying ? .35 : .12)) {
-        if (!speechStart) { speechStart = now; clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips(); }
-        lastVoice = now;
+      const F = FOCUS[focusMode], base = Math.max(fxPlaying ? .35 : .12, floorL * F.k);
+      const thr = speechStart ? Math.max(base, spk * F.rel) : base;   // once you talk, the bar follows YOUR loudness, so quieter room voices do not keep the turn open
+      if (!speechStart && mic <= thr) floorL += (mic - floorL) * (mic > floorL ? .004 : .05);   // learn the room noise
+      if (mic > thr) {
+        if (!speechStart) {
+          if (!loudSince) loudSince = now;
+          if (now - loudSince >= F.min) { speechStart = loudSince; spk = mic; clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips(); lastVoice = now; }
+        } else { spk = spk * .96 + mic * .04; lastVoice = now; }
       }
-      else if (speechStart && now - lastVoice > 900) finish();
+      else if (!speechStart && (loudSince = 0, false)) {}
+      else if (speechStart && (now - lastVoice > 900 || now - speechStart > 25000)) finish();
       else if (!speechStart && !held && !nudged && !fxPlaying && now - listenSince > 14000) {   // long silence: say we are still here
         nudged = true; const nd = pickFrom("nudge", true); if (nd) playClip(nd.audio);
       }
@@ -594,7 +612,7 @@ function tick() {
         if (fl) playClip(fl.audio);
         if (fillN >= 4) fillerArmed = false; else nextFill = now + 4500;
       }
-    } else if (state === "speak" && mic > .35) {
+    } else if (state === "speak" && mic > Math.max(.35, floorL * 3.5)) {
       cancelPending(); listen(); // you interrupted
     }
   }
