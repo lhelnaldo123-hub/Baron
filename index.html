@@ -190,6 +190,9 @@
   .ringbox .bars { height: 46px; width: 58px; flex: none; align-self: flex-end; margin-bottom: 10px; }
   body.vm .hud { grid-template-rows: minmax(0, 1fr); }
   body.vm #hub { display: none !important; }
+  .hubx { display: none; }
+  body.vm #hub.pop { display: flex !important; position: fixed; left: .7rem; right: .7rem; top: max(env(safe-area-inset-top), 56px); height: 64dvh; margin: 0; z-index: 60; background: #050a1cf5; box-shadow: 0 0 0 100vmax #000a; }
+  body.vm #hub.pop .hubx { display: block; position: absolute; top: 6px; right: 8px; z-index: 5; width: 34px; height: 34px; border-radius: 50%; border: 1px solid #6bb8ff88; background: #0a2a5acc; color: #fff; font-size: 1rem; }
   #hub { flex: 0 0 auto; margin: 0 .7rem .45rem; height: 34dvh; position: relative; overflow: hidden; display: flex; flex-direction: column;
     transition: height .32s cubic-bezier(.3,.8,.3,1); background: linear-gradient(165deg, #0b2d63e6, #041230ee); border: 1px solid #3aa8ff99; }
   #hub.t { height: 62dvh; } #hub.m { height: 56px; }
@@ -855,7 +858,7 @@ window.jvLookShow = (q, reply) => {              // camera answer goes into the 
   history = history.slice(-16); save("jv-history", history);
 };
 window.jvSend = text => { dropHeld(); const my = ++turn; answer(my, text, ""); };
-function vmOff() { document.body.classList.remove("vm"); }
+function vmOff() { document.body.classList.remove("vm"); try { Pop.popClose(); } catch (e) {} }
 $("#vmb").onclick = async () => { document.body.classList.add("vm"); if (!on) await begin(); };
 $("#vback").onclick = () => { end(); vmOff(); };
 $("#vset").onclick = () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; };
@@ -1125,9 +1128,12 @@ const Pop = (() => {
       }, 450);
     },
     // close the open email; if none is open, tuck the whole window away
-    shut() { if (zoom) close(); else setSize("m"); },
-    openMail() { if (zoom) close(); show(2); }
+    shut() { if (zoom) close(); else if (hub.classList.contains("pop")) hub.classList.remove("pop"); else setSize("m"); },
+    openMail() { if (zoom) close(); this.popOpen(); show(2); },
+    popOpen() { if (document.body.classList.contains("vm")) { if (curSize() === "m") setSize("n"); hub.classList.add("pop"); } },
+    popClose() { hub.classList.remove("pop"); }
   };
+  const hx = el("button", "hubx", "✕"); hx.setAttribute("aria-label", "Close"); hx.onclick = () => { if (zoom) close(); hub.classList.remove("pop"); }; hub.append(hx);
   let sz = "n"; try { sz = localStorage.getItem("jv-hub") || "n"; } catch (e) {}
   setSize(SIZES.includes(sz) ? sz : "n"); draw();
   return api;
@@ -1172,7 +1178,7 @@ async function refreshMail(manual) {
     if (manual) Pop.alert({ id: "mailerr", title: "Email", text: e.message, actions: [{ label: "Open settings", fn: () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; } }] });
   }
 }
-$("#mailb").onclick = () => { Pop.show(2); refreshMail(true); };
+$("#mailb").onclick = () => { Pop.popOpen(); Pop.show(2); refreshMail(true); };
 setTimeout(refreshMail, 2500);
 setInterval(() => { if (!document.hidden) refreshMail(); }, 120000);
 </script>
