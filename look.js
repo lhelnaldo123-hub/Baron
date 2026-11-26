@@ -104,6 +104,14 @@
     b.onclick = () => { if (window.jvPrime) window.jvPrime(); open("", false); };
     hr.prepend(b);
   }
+  // Voice-mode screen hides the header, so put a camera button in its top bar too
+  const vb = document.querySelector(".vmbar"), vs = document.querySelector("#vset");
+  if (vb && vs) {
+    const b = document.createElement("button"); b.className = "ib"; b.setAttribute("aria-label", "Look with camera");
+    b.innerHTML = '<svg viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+    b.onclick = () => { if (window.jvPrime) window.jvPrime(); open("", false); };
+    vb.insertBefore(b, vs);
+  }
   // Voice: "what is this?" / "check this for me" makes Jarvis open the camera and snap after 3 seconds.
   window.jvLookActions = list => (list || []).forEach(a => { if (a && a.action === "look") open(a.question || "", true); });
   window.Look = { open, close };
