@@ -299,7 +299,7 @@
       <label>Voice</label>
       <select id="vsel" aria-label="Choose voice"></select>
       <label>Voice volume: <span id="volv"></span></label>
-      <input type="range" id="vvol" min="50" max="300" step="10" aria-label="Voice volume">
+      <input type="range" id="vvol" min="50" max="500" step="10" aria-label="Voice volume">
       <div class="seg"><button id="vtest">Test voice</button><button id="vdel">Remove</button></div>
       <label>Add a voice</label>
       <input id="vname" placeholder="Name (for example Sarah)" autocomplete="off">
@@ -390,7 +390,7 @@ function bubble(role, text, before, pending) {
   return el;
 }
 
-let auto = 1, gainNode = null, vol = parseInt((() => { try { return localStorage.getItem("jv-vol"); } catch (e) { return ""; } })(), 10) || 100;
+let auto = 1, gainNode = null, vol = parseInt((() => { try { return localStorage.getItem("jv-vol"); } catch (e) { return ""; } })(), 10) || 180;
 const applyVol = () => { if (gainNode) gainNode.gain.value = vol / 100 * auto; };
 function levelOf(b64) {                   // how much to lift or lower this clip so every voice sounds equally loud
   if (!ctx || !gainNode) return Promise.resolve(1);
@@ -401,7 +401,7 @@ function levelOf(b64) {                   // how much to lift or lower this clip
       var d = buf.getChannelData(0), n = d.length, step = Math.max(1, Math.floor(n / 20000)), sum = 0, c = 0;
       for (var k = 0; k < n; k += step) { sum += d[k] * d[k]; c++; }
       var rms = Math.sqrt(sum / (c || 1));
-      return rms > 0.001 ? Math.max(0.8, Math.min(4, 0.14 / rms)) : 1;
+      return rms > 0.001 ? Math.max(0.8, Math.min(8, 0.2 / rms)) : 1;
     }).catch(function () { return 1; });
   } catch (e) { return Promise.resolve(1); }
 }
@@ -412,7 +412,7 @@ function initAudio() {                      // voice goes: player -> (meter) -> 
   ctx.createMediaElementSource(player).connect(outAn);
   gainNode = ctx.createGain(); applyVol();
   const lim = ctx.createDynamicsCompressor();
-  lim.threshold.value = -10; lim.knee.value = 8; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15;   // loud but never crackly
+  lim.threshold.value = -6; lim.knee.value = 8; lim.ratio.value = 20; lim.attack.value = 0.003; lim.release.value = 0.15;   // loud but never crackly
   outAn.connect(gainNode); gainNode.connect(lim); lim.connect(ctx.destination);
   ctx.onstatechange = () => { if (ctx.state !== "running") ctx.resume().catch(() => {}); };           // phones sometimes pause the sound engine, which makes the voice quiet or silent
   document.addEventListener("visibilitychange", () => { if (!document.hidden) ctx.resume().catch(() => {}); });
@@ -624,6 +624,7 @@ function tick() {
 }
 
 async function sendBlob(blob, my) {
+  if (blob.size < 2500) { if (my === turn && on && !paused) listen(); return; }   // an empty or cut-off recording: do not send it
   const audio = await new Promise(ok => {
     const f = new FileReader(); f.onload = () => ok(f.result.split(",")[1]); f.readAsDataURL(blob);
   });
