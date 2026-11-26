@@ -177,4 +177,4 @@ async function sendDraft(id) {
   return gmail("drafts/send", { method: "POST", body: JSON.stringify({ id: String(id) }) });
 }
 
-module.exports = { configured, inbox, unreadSince, draftReply, draftNew, find, sendDraft, rawMessage, full };
+module.exports = { accessToken, configured, inbox, unreadSince, draftReply, draftNew, find, sendDraft, rawMessage, full };
