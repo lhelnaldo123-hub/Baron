@@ -741,6 +741,7 @@ async function transcribe(my, audio) {
     const heard = String(d.user || "").trim();
     if (!heard) { if (held) respond(my, held); else listen(); return; }
     const full = (held ? held + " " : "") + heard;
+    if (window.jvLookCommand && window.jvLookCommand(full)) { dropHeld(); bubble("u", full); return; }   // "what is this" opens the camera
     if (window.jvCommand && window.jvCommand(full)) {   // a screen command ("scan", "weather"...): do it now, no thinking, no filler
       dropHeld(); bubble("u", full); if (on && !paused) listen(); return;
     }
@@ -800,6 +801,7 @@ $("#tf").onsubmit = e => {
   e.preventDefault();
   const t = $("#ti").value.trim(); if (!t) return;
   $("#ti").value = "";
+  if (window.jvLookCommand && window.jvLookCommand(t)) { bubble("u", t); return; }
   if (window.jvCommand && window.jvCommand(t)) { bubble("u", t); return; }   // short body command: the avatar just does it
   dropHeld(); const my = ++turn;
   if (on && !paused) { cancelClips(); stopRec(); set("think", "Thinking…"); armFiller(3000); }
