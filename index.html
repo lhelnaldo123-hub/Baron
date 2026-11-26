@@ -209,9 +209,9 @@
   .pv { display: none; font-size: .82rem; color: #bfe6ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: .1rem .2rem; }
   #hub.m .tabs { display: none; } #hub.m .pv { display: block; }
   .hv { flex: 1; min-height: 0; overflow: hidden; }
-  .ht { display: flex; width: 500%; height: 100%; transition: transform .3s cubic-bezier(.3,.8,.3,1); }
-  #hub[data-p="1"] .ht { transform: translateX(-20%); } #hub[data-p="2"] .ht { transform: translateX(-40%); } #hub[data-p="3"] .ht { transform: translateX(-60%); } #hub[data-p="4"] .ht { transform: translateX(-80%); }
-  .hp { flex: 0 0 20%; min-width: 0; height: 100%; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: .5rem; padding: .3rem .85rem .8rem; }
+  .ht { display: flex; width: 600%; height: 100%; transition: transform .3s cubic-bezier(.3,.8,.3,1); }
+  #hub[data-p="1"] .ht { transform: translateX(-16.6667%); } #hub[data-p="2"] .ht { transform: translateX(-33.3333%); } #hub[data-p="3"] .ht { transform: translateX(-50%); } #hub[data-p="4"] .ht { transform: translateX(-66.6667%); } #hub[data-p="5"] .ht { transform: translateX(-83.3333%); }
+  .hp { flex: 0 0 16.6667%; min-width: 0; height: 100%; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: .5rem; padding: .3rem .85rem .8rem; }
   .hp::-webkit-scrollbar { width: 0; }
   #hub #chat { flex: 1 1 auto; max-height: none; mask-image: none; -webkit-mask-image: none; padding: 0; }
   #hub #chat:empty { display: flex; }
@@ -265,7 +265,7 @@
   </main>
   <section id="hub" class="glass n" data-p="0">
     <div class="hh"><i class="grab"></i>
-      <div class="tabs"><button data-p="0" class="on">HOME</button><button data-p="1">CHAT<b hidden></b></button><button data-p="2">MAIL<b hidden></b></button><button data-p="3">ALERTS<b hidden></b></button><button data-p="4">NOTES</button></div>
+      <div class="tabs"><button data-p="0" class="on">HOME</button><button data-p="1">CHAT<b hidden></b></button><button data-p="2">MAIL<b hidden></b></button><button data-p="3">ALERTS<b hidden></b></button><button data-p="4">NOTES</button><button data-p="5">GALLERY</button></div>
       <div class="pv"></div></div>
     <div class="hv"><div class="ht">
       <div class="hp" id="hp0"></div>
@@ -273,6 +273,7 @@
       <div class="hp" id="hp2"></div>
       <div class="hp" id="hp3"></div>
       <div class="hp" id="hp4"></div>
+      <div class="hp" id="hp5"></div>
     </div></div>
   </section>
   <p id="st">Tap the orb to start talking</p>
@@ -305,7 +306,8 @@
       <label>Voice options</label>
       <button id="loudb" type="button"></button>
       <button id="pttb" type="button"></button>
-      <p class="help">Louder voice: phones turn all sound down while the microphone is open, so the mic is closed while Jarvis talks. Hold to talk: Jarvis only listens while you hold the orb, so room noise and other people are ignored.</p>
+      <button id="wakeb" type="button"></button>
+      <p class="help">Louder voice: phones turn all sound down while the microphone is open, so the mic is closed while Jarvis talks. Hold to talk: Jarvis only listens while you hold the orb, so room noise and other people are ignored. Wake word: say "Hey Jarvis" to start talking while the app is open on screen (it needs the microphone allowed).</p>
       <label>Add a voice</label>
       <input id="vname" placeholder="Name (for example Sarah)" autocomplete="off">
       <input id="vid" placeholder="Paste Fish voice link or ID" autocomplete="off">
@@ -641,7 +643,7 @@ function tick() {
         if (fillN >= 4) fillerArmed = false; else nextFill = now + 4500;
       }
     } else if (state === "speak") {
-      if (mic > Math.max(.5, floorL * 4)) { if (!intSince) intSince = now; if (now - intSince > 350) { intSince = 0; cancelPending(); listen(); } }   // you interrupted (a real voice for a third of a second, not a bump or Jarvis's own echo)
+      if (mic > Math.max(.5, floorL * 4)) { if (!intSince) intSince = now; if (now - intSince > 350) { intSince = 0; if (window.jvStopRead) window.jvStopRead(); cancelPending(); listen(); } }   // you interrupted (a real voice for a third of a second, not a bump or Jarvis's own echo)
       else intSince = 0;
     }
   }
@@ -805,6 +807,14 @@ async function answer(my, text, ackText, typed) {
     history = history.slice(-16); save("jv-history", history);
     if (d.mem && !memory.includes(d.mem)) { memory.push(d.mem); memory = memory.slice(-30); save("jv-memory", memory); }
     if (!on || paused) return;
+    if (d.steps && window.jvRead) {                              // step by step: read all the steps aloud, one after another ("stop" or a tap on the orb ends it)
+      if (fxP) await fxP;
+      if (my !== turn || !on || paused) return;
+      set("speak", "Speaking…");
+      await window.jvRead(d.reply.replace(/^\s*(\d+)[.)]\s*/gm, "Step $1. "));
+      if (my === turn && on && !paused) listen();
+      return;
+    }
     const v = await post("/api/speak", { text: d.say || d.reply, voice });   // text is already on screen while this loads
     if (my !== turn || !on || paused) return;
     if (fxP) await fxP;                                          // let the reaction finish first
@@ -1006,7 +1016,7 @@ const Pop = (() => {
     mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
     alert: '<svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg>'
   };
-  const hub = $("#hub"), P = [0, 1, 2, 3, 4].map(i => $("#hp" + i)), tabs = [...hub.querySelectorAll(".tabs button")], pv = hub.querySelector(".pv");
+  const hub = $("#hub"), P = [0, 1, 2, 3, 4, 5].map(i => $("#hp" + i)), tabs = [...hub.querySelectorAll(".tabs button")], pv = hub.querySelector(".pv");
   let items = [], zoom = null, pending = false, page = 0, mailMsg = "Checking mail…", unreadChat = 0, noClick = 0;
   const gone = new Set();                                   // dismissed this session
   const SIZES = ["m", "n", "t"];
@@ -1020,7 +1030,7 @@ const Pop = (() => {
   const curSize = () => SIZES.find(s => hub.classList.contains(s)) || "n";
   const bump = d => setSize(SIZES[Math.max(0, Math.min(2, SIZES.indexOf(curSize()) + d))]);
   function show(p) {
-    page = Math.max(0, Math.min(4, p)); hub.dataset.p = page;
+    page = Math.max(0, Math.min(5, p)); hub.dataset.p = page;
     tabs.forEach((b, i) => b.classList.toggle("on", i === page));
     if (curSize() === "m") setSize("n");
     if (page === 1) { unreadChat = 0; chat.scrollTop = chat.scrollHeight; }
@@ -1238,7 +1248,7 @@ window.jvMailActions = list => (list || []).forEach(a => {
   else if (a.action === "mail_read") Pop.read((a.from || "").replace(/<.*>/, "").trim() || "Email", (a.subject ? a.subject + "\n\n" : "") + (a.text || ""));
   else if (a.action === "mail_window") a.do === "close" ? Pop.shut() : Pop.openMail();
   else if (a.action === "alerts_clear") Pop.clearAlerts();
-  else if (a.action === "panel") { Pop.popOpen(); Pop.show({ home: 0, chat: 1, mail: 2, alerts: 3, notes: 4 }[a.page] || 0); }
+  else if (a.action === "panel") { Pop.popOpen(); Pop.show({ home: 0, chat: 1, mail: 2, alerts: 3, notes: 4, gallery: 5 }[a.page] || 0); }
   else if (a.action === "task_add" && a.task) saveTasks([...tasks, a.task]);
   else if (a.action === "task_done") saveTasks(tasks.map(t => t.id === a.id ? { ...t, done: true } : t));
   else if (a.action === "task_remove") saveTasks(tasks.filter(t => t.id !== a.id));
@@ -1271,6 +1281,7 @@ setInterval(() => { if (!document.hidden) refreshMail(); }, 120000);
 </script>
 <script src="/extras.js"></script>
 <script src="/look.js"></script>
+<script src="/features.js"></script>
 </body>
   </html>
   
