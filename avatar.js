@@ -65,7 +65,7 @@
     const key = new T.DirectionalLight(0x9fe6ff, 2.2); key.position.set(1.2, 2.2, 2.5); scene.add(key);
     const rim = new T.DirectionalLight(0x2a6bff, 2.6); rim.position.set(-2, 1.5, -2); scene.add(rim);
 
-    yawG = new T.Group(); fixG = new T.Group(); yawG.add(fixG); scene.add(yawG);
+    yawG = new T.Group(); yawG.rotation.order = "YXZ"; fixG = new T.Group(); yawG.add(fixG); scene.add(yawG);   // YXZ: flips and rolls tip him forward or backward in his own direction
     const gltf = await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync(CFG.model);
     const model = gltf.scene; fixG.add(model);
     model.traverse(o => {
@@ -294,7 +294,7 @@
   // how long each new move lasts (seconds) before the body goes back to normal
   const AHOLD = { wave: 3.6, point: 3.5, move: 4.5, head: 5, hips: 5, salute: 4, clap: 4, cheer: 4 };
   const LHOLD = { knee: 5, front: 5, side: 5, back: 5, tuck: 4, kick: 2.4, march: 5, step: 5, jump: 2.4 };
-  const ACT = { jump: 2.4, dance: 6, march: 5, bow: 2.8 };
+  const ACT = { jump: 2.4, dance: 6, march: 5, bow: 2.8, backflip: 2.8, frontflip: 2.8, backroll: 3.2, frontroll: 3.2 };
   const durOf = i => i.secs || (i.k === "arm" ? (AHOLD[i.pose] || 2) : i.k === "leg" ? (i.pose === "down" ? 1.5 : (LHOLD[i.pose] || 2)) : i.k === "act" ? (ACT[i.a] || 3) : i.k === "custom" ? 4 : i.k === "turn" && i.by ? 2.8 : 2);
 
   function run1(i, now) {
@@ -318,6 +318,7 @@
       if (i.a === "jump") { setArm("B", "cheer", d); setLeg("B", "jump", d); }
       else if (i.a === "dance") { setArm("B", "dance", d); setLeg("B", "step", d); setExpr("smile", d); }
       else if (i.a === "march") { setArm("B", "swing", d); setLeg("B", "march", d); }
+      else if (/^(back|front)(flip|roll)$/.test(i.a)) { setArm("B", i.a.endsWith("roll") ? "fold" : "cheer", d * 0.55); setLeg("B", "tuck", d * 0.65); if (A.exprName === "neutral") setExpr("surprised", 1.2); }
     } else if (i.k === "custom") {
       const v = a => V(+a[0] || 0, +a[1] || 0, +a[2] || 0).normalize();
       const hold = i.secs || 4;
@@ -426,17 +427,25 @@
     if (A.spinReset && Math.abs(A.yawTarget - A.yaw) < 0.03) { const w = Math.round(A.yawTarget / 6.2832) * 6.2832; A.yawTarget -= w; A.yaw -= w; A.spinReset = false; }
     A.breathe = Math.sin(t * 1.5);
     // whole-body moves (jump, dance, bow) are programs that run for a few seconds
-    let jumpY = 0, swayY = 0, swayZ = 0, bow = 0;
+    let jumpY = 0, swayY = 0, swayZ = 0, bow = 0, flipX = 0, flipPy = 0.95;
     if (A.act) {
       const a = A.act, p = clamp((sec - a.t0) / (a.until - a.t0), 0, 1);
       if (sec > a.until) A.act = null;
       else if (a.n === "jump") jumpY = 0.26 * Math.abs(Math.sin(p * Math.PI * 2));
       else if (a.n === "dance") { swayY = 0.22 * Math.sin(t * 2.6); swayZ = 0.09 * Math.sin(t * 5.2); jumpY = 0.015 * Math.abs(Math.sin(t * 5.2)); }
       else if (a.n === "march") { swayZ = 0.03 * Math.sin(t * 5); }
+      else if (/^(back|front)(flip|roll)$/.test(a.n)) {                 // crouch, spring up, turn once round his middle, land
+        const dir = a.n.startsWith("back") ? -1 : 1, roll = a.n.endsWith("roll"), c0 = 0.14, c1 = 0.86, q = clamp((p - c0) / (c1 - c0), 0, 1);
+        flipX = dir * Math.PI * 2 * ease(q);
+        flipPy = roll ? 0.5 : 0.95;
+        jumpY = (roll ? 0.05 : 0.35) * Math.sin(Math.PI * q);
+      }
       else if (a.n === "bow") bow = 0.8 * (p < 0.35 ? ease(p / 0.35) : p < 0.62 ? 1 : ease((1 - p) / 0.38));
     }
-    yawG.rotation.y = A.yaw + 0.025 * Math.sin(t * 0.6) + swayY;
-    yawG.position.y = 0.012 * Math.sin(t * 1.1) + jumpY;
+    const ya = A.yaw + 0.025 * Math.sin(t * 0.6) + swayY;
+    yawG.rotation.y = ya; yawG.rotation.x = flipX;
+    const offY = flipPy * (1 - Math.cos(flipX)), offZ = -flipPy * Math.sin(flipX);   // turn around his middle, not his feet
+    yawG.position.set(offZ * Math.sin(ya), 0.012 * Math.sin(t * 1.1) + jumpY + offY, offZ * Math.cos(ya));
     yawG.updateMatrixWorld(true);
 
     // ----- expressions blend toward their targets -----
@@ -626,7 +635,7 @@ body[data-s="think"] #avp .dot{background:#b07dff;box-shadow:0 0 8px #b07dff}
       ["Nod", "nod your head"], ["Shake head", "shake your head"], ["Look up", "look up"], ["Look down", "look down"], ["Look left", "look to your left"], ["Look right", "look to your right"],
       ["Tilt", "tilt your head"], ["Smile", "smile"], ["Surprised", "look surprised"], ["Sad", "look sad"], ["Confused", "look confused"], ["Turn around", "turn around"],
       ["Face me", "face me"], ["Turn left", "turn to the left"], ["Turn right", "turn to the right"], ["Sideways", "turn sideways"], ["Spin 360", "turn 360 degrees"],
-      ["Raise leg", "raise your right leg"], ["Kick ball", "kick a ball"], ["Hold head", "hold your head with one hand"], ["Both hands", "hold your head with both hands"], ["Dance", "dance"], ["Jump", "jump"], ["Clap", "clap your hands"], ["Hands on hips", "hands on hips"], ["Bow", "take a bow"], ["March", "march in place"]];
+      ["Raise leg", "raise your right leg"], ["Kick ball", "kick a ball"], ["Hold head", "hold your head with one hand"], ["Both hands", "hold your head with both hands"], ["Dance", "dance"], ["Jump", "jump"], ["Back flip", "do a back flip"], ["Front flip", "do a front flip"], ["Back roll", "do a back roll"], ["Front roll", "do a front roll"], ["Clap", "clap your hands"], ["Hands on hips", "hands on hips"], ["Bow", "take a bow"], ["March", "march in place"]];
     wrap.innerHTML = `<div class="pill" id="avt"><i class="dot"></i><span id="avs">loading</span></div><div class="box"><button type="button" class="g" id="avfocus" style="width:100%;margin-bottom:.4rem"></button><form id="avf"><input id="avi" placeholder="Type a command…" autocomplete="off"><button class="g">Go</button></form><div class="grid">` +
       G.map(g => `<button type="button" class="g" data-c="${g[1]}">${g[0]}</button>`).join("") + `</div></div>`;
     document.body.append(wrap);
