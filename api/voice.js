@@ -36,6 +36,7 @@ const T = require("./_tasks");
 const L = require("./_live");
 const C = require("./_calendar");
 const N = require("./_notes");
+const M = require("./_more");
 
 const HEALTH =
   "\nIf the user mentions symptoms or how their body feels, be caring and ask one short question at a time. Give general self-care tips only, never a diagnosis or medicine doses. " +
@@ -59,8 +60,8 @@ const SEND_TOOLS = [
   { type: "function", function: { name: "discard_draft", description: "Stop waiting on the pending draft because the user cancelled it. The draft stays in Gmail Drafts and is not sent.", parameters: { type: "object", properties: {} } } },
 ];
 const APP_TOOLS = [
-  { type: "function", function: { name: "show_panel", description: "Open the Jarvis window on the user's phone to one page: home (clock, battery, network), chat (messages), mail, alerts, or notes (reminders, notes and saved homework). Use it when they ask to see their battery, messages, mail or alerts.",
-    parameters: { type: "object", properties: { page: { type: "string", enum: ["home", "chat", "mail", "alerts", "notes"] } }, required: ["page"] } } },
+  { type: "function", function: { name: "show_panel", description: "Open the Jarvis window on the user's phone to one page: home (clock, battery, network), chat (messages), mail, alerts, or notes (reminders, notes and saved homework), or gallery (saved messages). Use it when they ask to see their battery, messages, mail, alerts or gallery.",
+    parameters: { type: "object", properties: { page: { type: "string", enum: ["home", "chat", "mail", "alerts", "notes", "gallery"] } }, required: ["page"] } } },
   { type: "function", function: { name: "make_sound", description: "Play a real animal sound on the user's phone, for example when they ask you to bark like a dog, meow, roar like a lion or crow like a rooster.",
     parameters: { type: "object", properties: { sound: { type: "string", enum: ["dog", "cat", "rooster", "cow", "lion", "wolf", "duck", "bird", "sheep"] }, count: { type: "integer", description: "How many times, 1 to 5 (optional)" } }, required: ["sound"] } } },
   { type: "function", function: { name: "clear_alerts", description: "Clear all alerts and problem notices from the user's alerts list. Use it when they ask to clear, delete or remove the alerts.", parameters: { type: "object", properties: {} } } },
@@ -84,20 +85,20 @@ const ACTION_TOOL = { type: "function", function: { name: "device_action",
     direction: { type: "string", enum: ["in", "out"], description: "Only for zoom_window" },
     all: { type: "boolean", description: "Only for close_window: close every window" },
     question: { type: "string", description: "Only for describe: what the user wants to know about what the camera sees" } }, required: ["action"] } } };
-const ARM_POSES = ["down", "raise", "wave", "point", "fold", "stretch", "palms", "open", "move", "head", "hips", "salute", "clap", "cheer"];
-const LEG_POSES = ["down", "knee", "front", "side", "back", "tuck", "kick", "march"];
-const ACTIONS = ["kick_ball", "jump", "dance", "march", "bow", "clap", "cheer", "backflip", "frontflip", "backroll", "frontroll"];
+const ARM_POSES = ["down", "raise", "wave", "point", "fold", "stretch", "palms", "open", "move", "head", "hips", "salute", "clap", "cheer", "heart", "think", "flex", "stop", "wings", "beckon", "hug", "punch", "shrug", "robot"];
+const LEG_POSES = ["down", "knee", "front", "side", "back", "tuck", "kick", "march", "wide", "squat", "stomp"];
+const ACTIONS = ["kick_ball", "jump", "dance", "march", "bow", "clap", "cheer", "backflip", "frontflip", "backroll", "frontroll", "jumping_jacks", "run", "boxing", "squat", "robot_dance", "shrug", "flex"];
 const HEAD_MOVES = ["nod", "shake", "up", "down", "left", "right", "tilt", "center"];
 const FACES = ["smile", "surprised", "sad", "confused", "neutral"];
 const AVATAR_TOOL = { type: "function", function: { name: "avatar_pose",
-  description: "Move your own 3D body (arms, legs, head, face, whole-body actions). Call it whenever the user asks you to move, pose, gesture, act something out or show an action: raise a leg, hold your head with one hand or two, kick a ball, dance, jump, do a back flip or front flip, do a back roll or front roll, bow, clap, salute, hands on hips, wave, look somewhere, smile... Any request about your body goes here. " +
+  description: "Move your own 3D body (arms, legs, head, face, whole-body actions). Call it whenever the user asks you to move, pose, gesture, act something out or show an action: raise a leg, hold your head with one hand or two, kick a ball, dance, jump, do a back flip or front flip, do a back roll or front roll, bow, clap, salute, hands on hips, wave, look somewhere, smile... Arm poses also include heart (hand on heart), think (hand on chin), flex (show muscles), stop (halt hand), wings (arms out like an aeroplane), beckon (come here), hug, punch, shrug and robot. Any request about your body goes here. " +
     "You can set arms, legs, head and face together. For a sequence (first this, then that) call it several times and give each later call a delay in seconds. " +
     "For a move that is not in the lists, use custom: give the direction each limb segment points as [x, y, z] where x = toward your own left (positive) or right (negative), y = up (positive) or down (negative), z = toward the viewer (positive) or backwards (negative). Example: arm straight out to your left = upper [1,0,0], lower [1,0,0]; leg lifted forward = upper [0,0.3,1], lower [0,-1,0.2].",
   parameters: { type: "object", properties: {
     arm_right: { type: "string", enum: ARM_POSES }, arm_left: { type: "string", enum: ARM_POSES },
-    leg_right: { type: "string", enum: LEG_POSES, description: "knee = knee lifted, front = leg straight out forward, side = out to the side, back = bent behind, tuck = knee bent, kick = a kick, march = walking in place" },
+    leg_right: { type: "string", enum: LEG_POSES, description: "knee = knee lifted, front = leg straight out forward, side = out to the side, back = bent behind, tuck = knee bent, kick = a kick, march = walking in place, wide = legs apart, squat = bend the knees low, stomp = stamping feet" },
     leg_left: { type: "string", enum: LEG_POSES },
-    action: { type: "string", enum: ACTIONS, description: "A whole-body action. kick_ball shows a ball and kicks it (use side to choose the leg)." },
+    action: { type: "string", enum: ACTIONS, description: "A whole-body action. kick_ball shows a ball and kicks it (use side to choose the leg). jumping_jacks, run (in place), boxing (punching), squat, robot_dance, shrug, flex (show muscles)." },
     side: { type: "string", enum: ["left", "right"], description: "Which leg for kick_ball. Default right." },
     head: { type: "string", enum: HEAD_MOVES }, face: { type: "string", enum: FACES },
     seconds: { type: "number", description: "How long to hold the pose, 1 to 15. Default is fine." },
@@ -128,7 +129,7 @@ const MAIL_RULES =
 async function runTool(c, actions, pending, tasks, X) {
   try {
     const a = JSON.parse(c.function.arguments || "{}");
-    const xr = (await L.run(c.function.name, a, X.off)) || (await C.run(c.function.name, a, actions, X)) || N.run(c.function.name, a, X.notes, actions);   // live info, calendar + reminders, notes
+    const xr = (await L.run(c.function.name, a, X.off)) || (await C.run(c.function.name, a, actions, X)) || N.run(c.function.name, a, X.notes, actions) || M.run(c.function.name, a, actions, X);   // live info, calendar + reminders, notes
     if (xr) return JSON.stringify(xr);
     if (c.function.name === "device_action") {
       actions.push({ action: String(a.action || ""), panel: a.panel, window: a.window, query: String(a.query || "").slice(0, 60), direction: a.direction, all: !!a.all, on: a.on, label: String(a.label || "").slice(0, 80), seconds: Number(a.seconds) || 0, question: String(a.question || "").slice(0, 300) });
@@ -147,7 +148,7 @@ async function runTool(c, actions, pending, tasks, X) {
     if (c.function.name === "avatar_gesture") { actions.push({ action: "avatar", command: String(a.command || "").slice(0, 120) }); return JSON.stringify({ ok: true }); }
     const tr = T.run(c.function.name, a, tasks, actions);
     if (tr) return JSON.stringify(tr);
-    if (c.function.name === "show_panel") { actions.push({ action: "panel", page: ["home", "chat", "mail", "alerts", "notes"].includes(a.page) ? a.page : "home" }); return JSON.stringify({ ok: true }); }
+    if (c.function.name === "show_panel") { actions.push({ action: "panel", page: ["home", "chat", "mail", "alerts", "notes", "gallery"].includes(a.page) ? a.page : "home" }); return JSON.stringify({ ok: true }); }
     if (c.function.name === "make_sound") { const snd = String(a.sound || ""); if (!/^(dog|cat|rooster|cow|lion|wolf|duck|bird|sheep)$/.test(snd)) return JSON.stringify({ error: "Unknown sound." }); actions.push({ action: "sound", sound: snd, count: Math.max(1, Math.min(5, parseInt(a.count, 10) || 0)) || undefined }); return JSON.stringify({ ok: true, note: "The sound is playing on the phone now. Say one short, playful line." }); }
     if (c.function.name === "clear_alerts") { actions.push({ action: "alerts_clear" }); return JSON.stringify({ ok: true }); }
     if (c.function.name === "show_pictures") { const qy = String(a.query || "").trim().slice(0, 80); if (!qy) return JSON.stringify({ error: "No search words." }); actions.push({ action: "pics", query: qy }); return JSON.stringify({ ok: true, note: "A pop-up with pictures is opening on the screen. Say one short line like 'Here you go.' Do not describe pictures you cannot see." }); }
@@ -238,11 +239,13 @@ module.exports = async (req, res) => {
     const tasks = T.clean(sentTasks);
     // New helpers. Their tools are only sent when the conversation seems to need them, so the free Groq token limit lasts longer.
     const ex = extra && typeof extra === "object" ? extra : {};
-    const X = { off: Number.isFinite(+ex.offset) && Math.abs(+ex.offset) <= 840 ? Math.round(+ex.offset) : 0, notes: N.clean(ex.notes), reminders: C.cleanRem(ex.reminders) };
+    const X = { off: Number.isFinite(+ex.offset) && Math.abs(+ex.offset) <= 840 ? Math.round(+ex.offset) : 0, notes: N.clean(ex.notes), reminders: C.cleanRem(ex.reminders), quiz: M.cleanQuiz(ex.quiz), contacts: M.cleanContacts(ex.contacts) };
     const seen = user + " " + (Array.isArray(history) ? history.slice(-2) : []).map(h => String((h && h.content) || "")).join(" ");
-    const useLive = L.RE.test(seen), useCal = C.RE.test(seen), useNotes = N.RE.test(seen);
-    const extraTools = [...(useLive ? L.tools() : []), ...(useCal ? C.tools() : []), ...(useNotes ? N.TOOLS : [])];
-    const extraRules = (useLive ? L.RULES : "") + (useCal ? C.rules(X) : "") + (useNotes ? N.RULES : "");
+    const useLive = L.RE.test(seen), useCal = C.RE.test(seen), useNotes = N.RE.test(seen) || !!(X.quiz && /\b(notes?|homework|saved)\b/i.test(X.quiz.topic));
+    const MF = M.detect(seen, !!X.quiz);
+    const stepWanted = M.STEP_RE.test(user);
+    const extraTools = [...(useLive ? L.tools() : []), ...(useCal ? C.tools() : []), ...(useNotes ? N.TOOLS : []), ...M.tools(MF, !!X.quiz)];
+    const extraRules = (useLive ? L.RULES : "") + (useCal ? C.rules(X) : "") + (useNotes ? N.RULES : "") + M.rules(MF, X);
     const lvl = Number(device && device.battery);
     const deviceLine = "\nPhone info: " + (Number.isFinite(lvl) ? `battery ${Math.round(lvl)}%${device.charging ? " (charging)" : ""}. ` : "battery unknown. ") + (now ? "Local time: " + String(now).slice(0, 40) + "." : "");
     const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + STYLE_RULES + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (mode === "teacher" ? "" : NAME_RULES) + APP_RULES + T.TASK_RULES + T.fmt(tasks) + deviceLine + extraRules + (vision ? VISION_RULES : "") + (avatar ? AVATAR_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
@@ -262,7 +265,7 @@ module.exports = async (req, res) => {
             body: JSON.stringify({
               model: m,
               messages: msgs,
-              max_tokens: spoken ? 400 : 1200,
+              max_tokens: stepWanted ? (spoken ? 900 : 1800) : spoken ? 400 : 1200,
               ...(m.includes("gpt-oss") && { reasoning_effort: "low" }),
               ...(withTools && { tools: toolList, tool_choice: "auto" }),
             }),
@@ -302,7 +305,7 @@ module.exports = async (req, res) => {
     const reply = noTags(full) || full;
     const say = spoken ? full : i >= 0 ? raw.slice(i + 4).trim() : raw.slice(0, 300);
 
-    res.json({ user, reply, say, mem, actions });
+    res.json({ user, reply, say, mem, actions, steps: stepWanted && /(^|\n)\s*\d+[.)]\s/.test(reply) });
   } catch (e) {
     res.status(500).json({ error: String(e.message).slice(0, 300) });
   }
