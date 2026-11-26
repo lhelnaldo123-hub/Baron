@@ -1151,7 +1151,7 @@ window.jvMailActions = list => (list || []).forEach(a => {
   else if (a.action === "draft_clear") { setPending(""); Pop.clearAlert("draft"); }
   else if (a.action === "mail_read") Pop.read((a.from || "").replace(/<.*>/, "").trim() || "Email", (a.subject ? a.subject + "\n\n" : "") + (a.text || ""));
   else if (a.action === "mail_window") a.do === "close" ? Pop.shut() : Pop.openMail();
-  else if (a.action === "panel") Pop.show({ home: 0, chat: 1, mail: 2, alerts: 3 }[a.page] || 0);
+  else if (a.action === "panel") { Pop.popOpen(); Pop.show({ home: 0, chat: 1, mail: 2, alerts: 3 }[a.page] || 0); }
   else if (a.action === "task_add" && a.task) saveTasks([...tasks, a.task]);
   else if (a.action === "task_done") saveTasks(tasks.map(t => t.id === a.id ? { ...t, done: true } : t));
   else if (a.action === "task_remove") saveTasks(tasks.filter(t => t.id !== a.id));
