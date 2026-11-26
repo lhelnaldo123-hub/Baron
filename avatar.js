@@ -20,6 +20,8 @@
 
   const state = { ready: false, anim: "idle", err: "" };
   const $ = s => document.querySelector(s);
+  const skinEl = document.getElementById("skin");        // the old 2D boy: hidden from the start so it never flashes before the 3D one
+  if (skinEl) skinEl.style.display = "none"; window.__noSkinDraw = true;
   const rnd = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const ease = p => p * p * (3 - 2 * p);
@@ -42,15 +44,15 @@
   //  Three.js loading
   // =====================================================================================
   async function boot() {
+    cv = document.createElement("canvas");
+    cv.id = "avatar3d";
+    cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;" +
+      "background:radial-gradient(ellipse at 50% 108%,#0b4aa8 0%,#06204a 38%,#02050d 78%)";
+    document.body.prepend(cv);
     T = await import("three");
     const { GLTFLoader } = await import("three/addons/loaders/GLTFLoader.js");
     const { MeshoptDecoder } = await import("three/addons/libs/meshopt_decoder.module.js");
 
-    cv = document.createElement("canvas");
-    cv.id = "avatar3d";
-    cv.style.cssText = "position:fixed;inset:0;width:100%;height:100%;z-index:-1;pointer-events:none;opacity:0;transition:opacity .8s;" +
-      "background:radial-gradient(ellipse at 50% 108%,#0b4aa8 0%,#06204a 38%,#02050d 78%)";
-    document.body.prepend(cv);
     renderer = new T.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     scene = new T.Scene();
@@ -407,10 +409,6 @@
     }
     updateState(app, speaking, sec);
     renderer.render(scene, camera);
-    if (cv.style.opacity !== "1") {
-      cv.style.opacity = "1";
-      setTimeout(() => { const sk = document.getElementById("skin"); if (sk) sk.style.display = "none"; window.__noSkinDraw = true; }, 700);
-    }
   }
 
   // facial bones: eyelids, brows, mouth, cheeks
@@ -487,10 +485,14 @@ body[data-s="think"] #avp .dot{background:#b07dff;box-shadow:0 0 8px #b07dff}
       ["Nod", "nod your head"], ["Shake head", "shake your head"], ["Look up", "look up"], ["Look down", "look down"], ["Look left", "look to your left"], ["Look right", "look to your right"],
       ["Tilt", "tilt your head"], ["Smile", "smile"], ["Surprised", "look surprised"], ["Sad", "look sad"], ["Confused", "look confused"], ["Turn around", "turn around"],
       ["Face me", "face me"], ["Turn left", "turn to the left"], ["Turn right", "turn to the right"], ["Sideways", "turn sideways"], ["Spin 360", "turn 360 degrees"]];
-    wrap.innerHTML = `<div class="pill" id="avt"><i class="dot"></i><span id="avs">loading</span></div><div class="box"><form id="avf"><input id="avi" placeholder="Type a command…" autocomplete="off"><button class="g">Go</button></form><div class="grid">` +
+    wrap.innerHTML = `<div class="pill" id="avt"><i class="dot"></i><span id="avs">loading</span></div><div class="box"><button type="button" class="g" id="avfocus" style="width:100%;margin-bottom:.4rem"></button><form id="avf"><input id="avi" placeholder="Type a command…" autocomplete="off"><button class="g">Go</button></form><div class="grid">` +
       G.map(g => `<button type="button" class="g" data-c="${g[1]}">${g[0]}</button>`).join("") + `</div></div>`;
     document.body.append(wrap);
     $("#avt").onclick = () => wrap.classList.toggle("open");
+    const FN = ["Focus: off", "Focus: near voice", "Focus: strong (noisy room)"];
+    const showF = () => { const b = $("#avfocus"); if (b && window.jvGetFocus) b.textContent = FN[window.jvGetFocus()]; };
+    $("#avfocus").onclick = () => { if (window.jvSetFocus) window.jvSetFocus((window.jvGetFocus() + 1) % 3); showF(); };
+    setTimeout(showF, 300);
     wrap.querySelectorAll("button[data-c]").forEach(b => b.onclick = () => b.dataset.c === "__greet" ? api.greet() : api.run(b.dataset.c));
     $("#avf").onsubmit = e => { e.preventDefault(); const v = $("#avi").value.trim(); if (v) { if (!api.run(v)) { /* not a body command: ask Jarvis */ if (window.jvSend) window.jvSend(v); } $("#avi").value = ""; } };
   }
@@ -526,5 +528,6 @@ body[data-s="think"] #avp .dot{background:#b07dff;box-shadow:0 0 8px #b07dff}
     state.err = String(e && e.message || e); console.warn("Avatar 3D not started, keeping the 2D hologram:", e);
     const s = $("#avs"); if (s) s.textContent = "3D off";
     const el = document.getElementById("avatar3d"); if (el) el.remove();
+    if (skinEl) skinEl.style.display = ""; window.__noSkinDraw = false;   // 3D failed: bring the old hologram back
   });
 })();
