@@ -112,7 +112,49 @@
     b.onclick = () => { if (window.jvPrime) window.jvPrime(); open("", false); };
     vb.insertBefore(b, vs);
   }
+
+  // ---- Pictures pop-up: "show me a picture of a lion" searches Wikimedia (free, no key) and shows the photos ----
+  const ps = document.createElement("style");
+  ps.textContent = `#pk{position:fixed;inset:0;z-index:9998;background:#000c;display:none;align-items:center;justify-content:center;padding:14px}
+  #pk.on{display:flex}
+  #pk .w{width:100%;max-width:520px;max-height:86dvh;display:flex;flex-direction:column;gap:10px;padding:14px;border-radius:18px;border:1px solid #5fd6ff88;background:#050a1cf8;color:#fff;box-shadow:0 0 30px -6px #1b7dff}
+  #pk .h{display:flex;justify-content:space-between;align-items:center;font-size:.95rem}
+  #pk .h button{width:36px;height:36px;border-radius:50%;border:1px solid #6bb8ff88;background:#0a2a5acc;color:#fff;font-size:1rem}
+  #pk .g{overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #pk .g img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;background:#0a2a5a}
+  #pk .g img.big{grid-column:1/-1;aspect-ratio:auto;max-height:60dvh;object-fit:contain}
+  #pk .n{font-size:.8rem;color:#9fb6d8;text-align:center}`;
+  document.head.append(ps);
+  const pk = document.createElement("div"); pk.id = "pk";
+  pk.innerHTML = '<div class="w"><div class="h"><b id="pkt"></b><button id="pkx" aria-label="Close">✕</button></div><div class="g"></div><div class="n"></div></div>';
+  document.body.append(pk);
+  const pg = pk.querySelector(".g"), pn = pk.querySelector(".n"), pt = pk.querySelector("#pkt");
+  pk.querySelector("#pkx").onclick = () => pk.classList.remove("on");
+  pk.onclick = e => { if (e.target === pk) pk.classList.remove("on"); };
+  async function pics(query) {
+    pt.textContent = query; pg.replaceChildren(); pn.textContent = "Searching…"; pk.classList.add("on");
+    const urls = [];
+    try {   // main picture of the matching Wikipedia article first
+      const r = await fetch("https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(query.trim().replace(/ /g, "_")) + "?redirect=true");
+      if (r.ok) { const j = await r.json(); const u = j.originalimage && j.originalimage.source || j.thumbnail && j.thumbnail.source; if (u && j.type === "standard") urls.push(j.thumbnail && j.thumbnail.source || u); }
+    } catch (e) {}
+    try {
+      const r = await fetch("https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrlimit=14&prop=imageinfo&iiprop=url|mime&iiurlwidth=600&format=json&origin=*&gsrsearch=" + encodeURIComponent("filetype:bitmap " + query));
+      const j = await r.json();
+      Object.values((j.query && j.query.pages) || {}).sort((a, b) => (a.index || 0) - (b.index || 0)).forEach(p => {
+        const i = p.imageinfo && p.imageinfo[0];
+        if (i && /^image\/(jpeg|png)$/.test(i.mime) && i.thumburl && !urls.includes(i.thumburl)) urls.push(i.thumburl);
+      });
+    } catch (e) {}
+    if (!urls.length) { pn.textContent = "I could not find pictures for that. Check your internet and try again."; return; }
+    urls.slice(0, 8).forEach(u => {
+      const im = new Image(); im.src = u; im.loading = "lazy"; im.alt = query;
+      im.onerror = () => im.remove(); im.onclick = () => im.classList.toggle("big");
+      pg.append(im);
+    });
+    pn.textContent = "Tap a picture to enlarge. Images from Wikipedia / Wikimedia Commons.";
+  }
   // Voice: "what is this?" / "check this for me" makes Jarvis open the camera and snap after 3 seconds.
-  window.jvLookActions = list => (list || []).forEach(a => { if (a && a.action === "look") open(a.question || "", true); });
-  window.Look = { open, close };
+  window.jvLookActions = list => (list || []).forEach(a => { if (!a) return; if (a.action === "look") open(a.question || "", true); else if (a.action === "pics" && a.query) pics(a.query); });
+  window.Look = { open, close, pics };
 })();
