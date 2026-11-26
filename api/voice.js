@@ -52,6 +52,8 @@ const SEND_TOOLS = [
 const APP_TOOLS = [
   { type: "function", function: { name: "show_panel", description: "Open the Jarvis window on the user's phone to one page: home (clock, battery, network), chat (messages), mail, or alerts. Use it when they ask to see their battery, messages, mail or alerts.",
     parameters: { type: "object", properties: { page: { type: "string", enum: ["home", "chat", "mail", "alerts"] } }, required: ["page"] } } },
+  { type: "function", function: { name: "look_camera", description: "Open the phone camera so the user can show you something: an object, a question on a board or paper, a sign, a screen, a place. Use it when they say things like 'what is this', 'look at this', 'check this for me', 'read this', 'solve this', 'what does this say'. Put what they want to know in question.",
+    parameters: { type: "object", properties: { question: { type: "string", description: "What the user wants to know about it, if they said" } } } } },
   { type: "function", function: { name: "heart_rate", description: "Start a heart rate (pulse) check with the phone's back camera. Use when the user asks you to check their heart rate or pulse. The phone shows and speaks the result itself.", parameters: { type: "object", properties: {} } } },
 ];
 const ACTION_TOOL = { type: "function", function: { name: "device_action",
@@ -125,6 +127,7 @@ async function runTool(c, actions, pending, tasks) {
     const tr = T.run(c.function.name, a, tasks, actions);
     if (tr) return JSON.stringify(tr);
     if (c.function.name === "show_panel") { actions.push({ action: "panel", page: ["home", "chat", "mail", "alerts"].includes(a.page) ? a.page : "home" }); return JSON.stringify({ ok: true }); }
+    if (c.function.name === "look_camera") { actions.push({ action: "look", question: String(a.question || "").slice(0, 300) }); return JSON.stringify({ ok: true, note: "The camera is opening and will take the photo in 3 seconds. Say one short line like 'Sure, hold it up for me.' The answer will show on screen by itself." }); }
     if (c.function.name === "heart_rate") { actions.push({ action: "heart" }); return JSON.stringify({ ok: true, started: true }); }
     if (c.function.name === "draft_email") {
       const d = await mail.draftNew(String(a.to || ""), String(a.subject || ""), String(a.body || ""));
