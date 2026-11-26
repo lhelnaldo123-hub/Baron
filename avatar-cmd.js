@@ -38,12 +38,50 @@
     else if (has(/\btilt\b/)) out.push({ k: "head", a: "tilt" });
     else if (has(/\b(look at me|look to me|look this way|look forward|look straight|head (toward|towards|to) me|turn head|eyes on me|head straight|center)\b/)) out.push({ k: "head", a: "center" });
 
+    // ---------- legs, kicking, whole-body moves ----------
+    const armWord = has(/\b(hand|hands|arm|arms)\b/);
+    const legWord = has(/\b(leg|legs|knee|knees|foot|feet|thigh|toe|toes)\b/);
+    const bothW = has(/\b(both|two)\b/);
+    const lr = has(/\bright\b/) ? "R" : has(/\bleft\b/) ? "L" : null;
+    let handled = false;
+    if (has(/\bkick\w*\b/)) { out.push({ k: "leg", pose: "kick", side: lr || "R", ball: has(/\bball\b/) }); handled = true; }
+    else if (legWord && !armWord) {
+      const up = has(/\b(raise|lift|up|hold|stand on|one leg)\b/), down = has(/\b(down|lower|drop|rest|normal|ground)\b/);
+      let lp = null;
+      if (up && !down) lp = has(/\b(side|sideways|out)\b/) ? "side" : has(/\b(back|behind)\b/) ? "back" : has(/\b(straight|front|forward|high)\b/) ? "front" : "knee";
+      else if (down) lp = "down";
+      else if (has(/\b(tuck|bend|bent)\b/)) lp = "tuck";
+      if (lp) { out.push({ k: "leg", pose: lp, side: bothW || has(/\b(legs|feet)\b/) ? "B" : lr || "R" }); handled = true; }
+    }
+    if (!handled) {
+      if (has(/\b(danc\w*|boogie|groove)\b/)) { out.push({ k: "act", a: "dance" }); handled = true; }
+      else if (has(/\b(jump\w*|hop\w*|leap\w*)\b/)) { out.push({ k: "act", a: "jump" }); handled = true; }
+      else if (has(/\bmarch\w*\b|\b(walk|run|jog)\w*\b.*\b(place|spot)\b|^(walk|run|jog|stomp)( around)?$/)) { out.push({ k: "act", a: "march" }); handled = true; }
+      else if (has(/\b(bow|bowing)\b/)) { out.push({ k: "act", a: "bow" }); handled = true; }
+    }
+
+    // ---------- hold your head (one hand, then two) ----------
+    const holdHead = !handled && has(/\b(head|forehead|temples?)\b/) &&
+      has(/\b(hold\w*|grab\w*|grip\w*|clutch\w*|cover\w*|touch\w*|scratch\w*|rest\w*|put|place|hands? on|behind)\b/) &&
+      !has(/\b(nod|shake|look|tilt|turn|face)\b/);
+    if (holdHead) {
+      const manyHands = has(/\b(hands|arms)\b/);
+      if (has(/\bone\b/) && bothW) {           // "one hand, then two"
+        out.push({ k: "arm", pose: "head", side: lr || "R", secs: 3.5 }, { k: "arm", pose: "head", side: "B", delay: 3.7, secs: 5 });
+      } else out.push({ k: "arm", pose: "head", side: bothW || manyHands ? "B" : lr || "R" });
+    }
+
     // ---------- arms ----------
     const both = has(/\b(both|two|arms|hands)\b/);
     const side = both ? "B" : has(/\bright\b/) ? "R" : has(/\bleft\b/) ? "L" : null;
-    const arm = has(/\b(hand|hands|arm|arms)\b/);
+    const arm = armWord;
     let pose = null;
-    if (has(/\b(wave|say hi|say hello|greet|hello there)\b/)) pose = "wave";
+    if (handled || holdHead) { /* already done above */ }
+    else if (has(/\bhips?\b/)) pose = "hips";
+    else if (has(/\bsalut\w*\b/)) pose = "salute";
+    else if (has(/\b(clap\w*|applaud\w*)\b/)) pose = "clap";
+    else if (has(/\b(cheer\w*|celebrat\w*|hooray|yay|victory)\b/)) pose = "cheer";
+    else if (has(/\b(wave|say hi|say hello|greet|hello there)\b/)) pose = "wave";
     else if (has(/\bpoint\b/)) pose = "point";
     else if (has(/\b(fold|cross)\b.*\barms?\b|\barms? (folded|crossed)\b/)) pose = "fold";
     else if (has(/\bstretch\b/)) pose = "stretch";
@@ -57,8 +95,9 @@
     else if (arm && has(/\bup\b/) && !has(/\b(look|head|eyes)\b/)) pose = "raise";
     else if (has(/\b(move|swing|wiggle|flex|exercise)\b.*\b(arm|arms|hand|hands)\b/)) pose = "move";
     if (pose) {
-      const forced = { fold: "B", stretch: "B", palms: "B", open: "B" }[pose];
-      out.push({ k: "arm", pose, side: forced || side || (pose === "down" ? "B" : "R") });
+      const forced = { fold: "B", stretch: "B", palms: "B", open: "B", clap: "B", cheer: "B" }[pose];
+      out.push({ k: "arm", pose, side: forced || side || (pose === "down" || pose === "hips" ? "B" : "R") });
+      if (pose === "down") out.push({ k: "leg", pose: "down", side: "B" });
     }
     return out;
   }
@@ -69,10 +108,17 @@
     const t = norm(text);
     if (t.split(" ").length > 9) return false;
     if (/^(what|why|how|who|when|where|which|tell|explain|describe|is|are|do|does|did)\b/.test(t)) return false;
+    if (/^(i|im|we|you|he|she|they|my|it|its|that|this|there)\b/.test(t)) return false;
     return true;
   }
 
-  const api = { parse, isPureCommand, norm };
+  // after an action, "ok" / "that's all" means: stop
+  function isStop(text) {
+    const t = String(text || "").toLowerCase().replace(/[’']/g, "").replace(/[^a-z ]+/g, " ").replace(/\s+/g, " ").trim();
+    return /^(ok|okay|its ok|its okay|thats all|that is all|thats it|that will do|enough|stop|stop it|nothing|nothing else|no|nope|nah|im good|all good|thanks|thank you|good|fine|alright|never mind|nevermind|youre done|you are done|relax|cool)( thanks| thank you| jarvis)?$/.test(t);
+  }
+
+  const api = { parse, isPureCommand, isStop, norm };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   else root.AvatarCmd = api;
 })(typeof window !== "undefined" ? window : globalThis);
