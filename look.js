@@ -155,12 +155,75 @@
     pn.textContent = "Tap a picture to enlarge. Images from Wikipedia / Wikimedia Commons.";
   }
   // Voice: "what is this?" / "check this for me" makes Jarvis open the camera and snap after 3 seconds.
-  window.jvLookActions = list => (list || []).forEach(a => { if (!a) return; if (a.action === "look") open(a.question || "", true); else if (a.action === "pics" && a.query) pics(a.query); });
+  window.jvLookActions = list => (list || []).forEach(a => { if (!a) return; if (a.action === "look") open(a.question || "", true); else if (a.action === "pics" && a.query) pics(a.query); else if (a.action === "sound" && a.sound) window.jvSound(a.sound, a.count); });
+
+  // ---- Animal sounds made right on the phone (no internet needed): dog, cat, rooster, cow, lion, wolf, duck, bird, sheep ----
+  let sfxCtx = null;
+  function sfxOut() {                                          // use Jarvis's own sound engine when it is running, so the voice volume applies
+    let c = null, out = null;
+    try { if (typeof ctx !== "undefined" && ctx) { c = ctx; out = typeof gainNode !== "undefined" && gainNode ? gainNode : ctx.destination; } } catch (e) {}
+    if (!c) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return null; sfxCtx = sfxCtx || new AC(); c = sfxCtx; out = c.destination; }
+    if (c.state !== "running") c.resume().catch(() => {});
+    return { c, out };
+  }
+  // one animal call: a pitch line through a few "mouth" filters, plus a little breath noise
+  function call(o, t0, p) {
+    const { c, out } = o, dur = p.dur, g = c.createGain(), mix = c.createGain();
+    g.gain.setValueAtTime(0.0001, t0); g.gain.linearRampToValueAtTime(p.gain || 0.7, t0 + (p.attack || 0.012));
+    if (p.hold) g.gain.setValueAtTime(p.gain || 0.7, t0 + p.hold);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    const osc = c.createOscillator(); osc.type = p.type || "sawtooth";
+    osc.frequency.setValueAtTime(p.pts[0][1], t0);
+    p.pts.slice(1).forEach(q => osc.frequency.linearRampToValueAtTime(q[1], t0 + q[0]));
+    let lfo = null;
+    if (p.vib) { lfo = c.createOscillator(); const d = c.createGain(); lfo.frequency.value = p.vibHz || 6; d.gain.value = p.vib; lfo.connect(d); d.connect(osc.frequency); lfo.start(t0); lfo.stop(t0 + dur + 0.05); }
+    (p.formants || [[700, 5], [1300, 5]]).forEach(f => {
+      const b = c.createBiquadFilter(); b.type = "bandpass"; b.Q.value = f[1] || 5;
+      b.frequency.setValueAtTime(f[0], t0); if (f[2]) b.frequency.linearRampToValueAtTime(f[2], t0 + dur * 0.5); if (f[3]) b.frequency.linearRampToValueAtTime(f[3], t0 + dur);
+      osc.connect(b); b.connect(mix);
+    });
+    mix.gain.value = 2.2; mix.connect(g);
+    if (p.noise) {
+      const n = c.createBufferSource(), len = Math.ceil(c.sampleRate * dur), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      n.buffer = buf; const nf = c.createBiquadFilter(); nf.type = p.noiseType || "bandpass"; nf.frequency.value = p.noiseF || 1500; nf.Q.value = 0.8;
+      const ng = c.createGain(); ng.gain.setValueAtTime(p.noise, t0); ng.gain.exponentialRampToValueAtTime(0.0001, t0 + dur * (p.noiseLen || 0.5));
+      n.connect(nf); nf.connect(ng); ng.connect(g); n.start(t0); n.stop(t0 + dur);
+    }
+    g.connect(out); osc.start(t0); osc.stop(t0 + dur + 0.05);
+  }
+  const SOUNDS = {
+    dog:     { n: 3, gap: 0.34, p: i => ({ dur: 0.22, gain: 0.85, pts: [[0, 560 - i * 30], [0.04, 460 - i * 30], [0.2, 230]], formants: [[650, 5], [1300, 6]], noise: 0.5, noiseF: 1800, noiseLen: 0.35 }) },
+    cat:     { n: 1, gap: 1.1, p: () => ({ dur: 0.95, gain: 0.55, attack: 0.08, pts: [[0, 430], [0.18, 640], [0.5, 880], [0.95, 430]], formants: [[800, 6, 1900, 900], [2300, 8, 2900, 2200]], vib: 6, vibHz: 7 }) },
+    rooster: { n: 1, gap: 2, p: () => ({ dur: 1.9, gain: 0.55, attack: 0.03, hold: 1.2, pts: [[0, 520], [0.25, 940], [0.3, 760], [0.55, 1000], [0.6, 820], [0.95, 1050], [1.4, 900], [1.9, 560]], formants: [[1000, 6], [2300, 7]], vib: 14, vibHz: 18 }) },
+    cow:     { n: 1, gap: 1.8, p: () => ({ dur: 1.7, gain: 0.6, attack: 0.15, hold: 1.0, pts: [[0, 150], [0.5, 138], [1.7, 108]], formants: [[420, 5], [850, 5]], vib: 4, vibHz: 5 }) },
+    lion:    { n: 1, gap: 2.8, p: () => ({ dur: 2.6, gain: 0.85, attack: 0.25, hold: 1.2, pts: [[0, 110], [1.2, 78], [2.6, 48]], formants: [[300, 3], [650, 3]], vib: 22, vibHz: 24, noise: 0.45, noiseType: "lowpass", noiseF: 900, noiseLen: 1.0 }) },
+    wolf:    { n: 1, gap: 3, p: () => ({ dur: 2.9, gain: 0.55, attack: 0.3, hold: 1.8, type: "triangle", pts: [[0, 290], [0.6, 560], [1.8, 650], [2.9, 430]], formants: [[600, 6], [1150, 6]], vib: 10, vibHz: 5.5 }) },
+    duck:    { n: 2, gap: 0.3, p: () => ({ dur: 0.17, gain: 0.8, pts: [[0, 400], [0.17, 290]], formants: [[950, 6], [1900, 6]], noise: 0.25, noiseF: 2500 }) },
+    bird:    { n: 6, gap: 0.16, p: i => { const b = 2300 + (i * 389) % 900; return { dur: 0.12, gain: 0.35, type: "sine", pts: [[0, b], [0.05, b + 1200], [0.12, b + 300]], formants: [[3000, 1]] }; } },
+    sheep:   { n: 2, gap: 0.8, p: () => ({ dur: 0.7, gain: 0.6, attack: 0.04, hold: 0.4, pts: [[0, 420], [0.4, 380], [0.7, 330]], formants: [[700, 5], [1350, 5]], vib: 45, vibHz: 28 }) },
+  };
+  window.jvSound = (name, count) => {
+    const S = SOUNDS[name], o = S && sfxOut(); if (!o) return false;
+    const n = Math.max(1, Math.min(5, count || S.n)), t = o.c.currentTime + 0.05;
+    for (let i = 0; i < n; i++) call(o, t + i * S.gap, S.p(i));
+    return true;
+  };
+  const ANIMALS = { dog: /\b(dog|puppy|bark\w*|woof|bow ?wow)\b/, cat: /\b(cat|kitten|meow\w*|miaow)\b/, rooster: /\b(rooster|cockerel|cock ?a ?doodle\w*)\b/, cow: /\b(cow|moo\w*)\b/, lion: /\b(lion|tiger|roar\w*)\b/, wolf: /\b(wolf|howl\w*)\b/, duck: /\b(duck|quack\w*)\b/, bird: /\b(bird|chirp\w*|tweet\w*)\b/, sheep: /\b(sheep|goat|baa+)\b/ };
+  const SOUNDY = /\b(bark\w*|meow\w*|moo\w*|roar\w*|howl\w*|quack\w*|chirp\w*|tweet\w*|woof|baa+|cock ?a ?doodle\w*|sound|noise|impression|imitate|impersonate|act like|like an?)\b/i;
+  const soundCommand = text => {
+    const t = String(text || "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!t || t.split(" ").length > 10 || !SOUNDY.test(t)) return false;
+    const name = Object.keys(ANIMALS).find(k => ANIMALS[k].test(t)); if (!name) return false;
+    const count = /\b(twice|two)\b/.test(t) ? 2 : /\b(three|thrice|few)\b/.test(t) ? 3 : /\b(four)\b/.test(t) ? 4 : /\b(five|many|lots)\b/.test(t) ? 5 : 0;
+    return window.jvSound(name, count);
+  };
   // Plain spoken or typed requests open the camera straight away (no AI needed, so no rate limit):
   // "what is this", "look at this", "check this for me", "open the camera", "read this", "solve this"...
   const LOOK = /\b(what('?s| is| are) (this|that|these|those)|what do you see|what can you see|look at (this|that)|check (this|that)( out)?( for me)?|open (the |your |my )?camera|use (the |your |my )?camera|(read|scan|identify|solve|translate) (this|that)|explain (this|that)( question| problem)?)\b/i;
   window.jvLookCommand = text => {
     text = String(text || "").trim();
+    if (soundCommand(text)) return true;             // "bark like a dog", "meow", "roar like a lion"
     if (!text || text.split(/\s+/).length > 7 || !LOOK.test(text)) return false;
     const generic = /^(hey |ok |okay )?(jarvis[, ]*)?(please )?(can you )?(what('?s| is| are) (this|that|these|those)|what do you see|what can you see|look at (this|that)|check (this|that)( out)?( for me)?|open (the |your |my )?camera|use (the |your |my )?camera)[?.! ]*$/i.test(text);
     if (window.jvPrime) window.jvPrime();
