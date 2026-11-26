@@ -32,13 +32,15 @@
   <div class="bar"><div class="chips">
     <button class="chip" data-q="What is this?">What is this?</button>
     <button class="chip" data-q="Read the question I'm pointing at and explain the answer step by step.">Explain question</button>
+    <button class="chip" data-q="Solve this homework question step by step and show the final answer.">Solve step by step</button>
+    <button class="chip" data-q="Check my written answer to this question. Say if it is right and explain any mistake.">Check my answer</button>
     <button class="chip" data-q="Read all the text you can see, exactly as written.">Read text</button>
     <button class="chip" data-q="Translate the text you see into English.">Translate</button></div>
     <div class="row2"><input id="lkq" placeholder="Ask about it (optional)" enterkeyhint="send"><button class="snap" id="lks" aria-label="Take photo"></button></div></div>
-  <div class="res"><div class="tx"></div><div class="btns"><button id="lkr">Stop</button><button id="lkc">Copy</button><button class="pri" id="lka">Ask again</button><button id="lkd">Close</button></div></div>`;
+  <div class="res"><div class="tx"></div><div class="btns"><button id="lkr">Stop</button><button id="lkc">Copy</button><button id="lks2">Save</button><button class="pri" id="lka">Ask again</button><button id="lkd">Close</button></div></div>`;
   document.body.append(el);
   const $ = s => el.querySelector(s), vid = $("video"), q = $("#lkq"), res = $(".res"), msg = $(".msg"), cd = $(".cd"), snap = $("#lks");
-  let stream = null, facing = "environment", torch = false, busy = false, timer = null, lastText = "";
+  let stream = null, facing = "environment", torch = false, busy = false, timer = null, lastText = "", lastQ = "";
 
   const say = t => { msg.textContent = t || ""; };
   async function start() {
@@ -76,7 +78,7 @@
       const post = window.jvPost; if (!post) throw new Error("Not ready. Reload the app.");
       const lang = (document.querySelector("#lsel") || {}).selectedOptions;
       const d = await post("/api/look", { image, question, langName: lang && lang[0] ? lang[0].text : "" });
-      lastText = d.reply || "I couldn't tell."; say("");
+      lastText = d.reply || "I couldn't tell."; lastQ = question || "What is this?"; say("");
       $(".tx").textContent = lastText; res.classList.add("on");
       if (window.jvLookShow) window.jvLookShow(question || "What is this?", lastText);
       readOut();
@@ -92,6 +94,7 @@
   $("#lkx").onclick = $("#lkd").onclick = close;
   $("#lka").onclick = () => { if (window.jvStopRead) window.jvStopRead(); res.classList.remove("on"); say(""); q.value = ""; el.querySelectorAll(".chip").forEach(c => c.classList.remove("sel")); };
   $("#lkc").onclick = e => navigator.clipboard.writeText(lastText).then(() => { e.target.textContent = "Copied"; setTimeout(() => e.target.textContent = "Copy", 1500); }).catch(() => {});
+  $("#lks2").onclick = e => { if (!lastText || !window.jvSaveHomework) return; window.jvSaveHomework(lastQ, lastText); e.target.textContent = "Saved ✓"; setTimeout(() => e.target.textContent = "Save", 1800); };
   $("#lkf").onclick = () => { facing = facing === "environment" ? "user" : "environment"; start(); };
   $("#lkt").onclick = async () => {
     const t = stream && stream.getVideoTracks()[0]; if (!t) return;
