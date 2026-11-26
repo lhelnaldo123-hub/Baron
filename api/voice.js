@@ -52,6 +52,8 @@ const SEND_TOOLS = [
 const APP_TOOLS = [
   { type: "function", function: { name: "show_panel", description: "Open the Jarvis window on the user's phone to one page: home (clock, battery, network), chat (messages), mail, or alerts. Use it when they ask to see their battery, messages, mail or alerts.",
     parameters: { type: "object", properties: { page: { type: "string", enum: ["home", "chat", "mail", "alerts"] } }, required: ["page"] } } },
+  { type: "function", function: { name: "show_pictures", description: "Search the internet for pictures and show them in a pop-up window on the user's screen. Use it when the user asks to see a picture or photo of anything (a lion, the Eiffel Tower, a kente cloth...). Put a short search phrase in query.",
+    parameters: { type: "object", properties: { query: { type: "string", description: "What to find pictures of, in English if possible" } }, required: ["query"] } } },
   { type: "function", function: { name: "look_camera", description: "Open the phone camera so the user can show you something: an object, a question on a board or paper, a sign, a screen, a place. Use it when they say things like 'what is this', 'look at this', 'check this for me', 'read this', 'solve this', 'what does this say'. Put what they want to know in question.",
     parameters: { type: "object", properties: { question: { type: "string", description: "What the user wants to know about it, if they said" } } } } },
   { type: "function", function: { name: "heart_rate", description: "Start a heart rate (pulse) check with the phone's back camera. Use when the user asks you to check their heart rate or pulse. The phone shows and speaks the result itself.", parameters: { type: "object", properties: {} } } },
@@ -99,7 +101,8 @@ const AVATAR_RULES = "\nYou have a 3D body the user can see, with arms, legs, he
 const NAME_RULES = "\nYour name is Jarvis. If asked your name or who you are, say you are Jarvis. If the user just says 'Jarvis', answer briefly like 'Yes?'.";
 const APP_RULES =
   "\nYou can open pages in the user's Jarvis app (home, chat, mail, alerts) with show_panel, and check their heart rate with heart_rate. " +
-  "When the user wants you to look at something, read something, or asks 'what is this', 'check this for me' or 'solve this', call look_camera to open the phone camera, then say one short line like 'Sure, hold it up for me.' Never say you cannot see; the camera takes care of it.";
+  "When the user wants you to look at something, read something, or asks 'what is this', 'check this for me' or 'solve this', call look_camera to open the phone camera, then say one short line like 'Sure, hold it up for me.' Never say you cannot see; the camera takes care of it. " +
+  "When the user asks to see a picture or photo of something, call show_pictures. To show messages or email, use show_panel or the mail tools; those open pop-up windows on screen.";
 const VISION_RULES =
   "\nThe user is looking at your holographic vision screen on their phone, with a live camera. When they ask you to do something on that screen (open a panel or floating window, show pictures, scan, weather, timer, flip the camera, lock, close, light or dark mode, tell them what the camera sees), call device_action to really do it, then confirm in a few words. Do not just say you will. For anything else, just talk.";
 const MAIL_RULES =
@@ -131,6 +134,7 @@ async function runTool(c, actions, pending, tasks) {
     const tr = T.run(c.function.name, a, tasks, actions);
     if (tr) return JSON.stringify(tr);
     if (c.function.name === "show_panel") { actions.push({ action: "panel", page: ["home", "chat", "mail", "alerts"].includes(a.page) ? a.page : "home" }); return JSON.stringify({ ok: true }); }
+    if (c.function.name === "show_pictures") { const qy = String(a.query || "").trim().slice(0, 80); if (!qy) return JSON.stringify({ error: "No search words." }); actions.push({ action: "pics", query: qy }); return JSON.stringify({ ok: true, note: "A pop-up with pictures is opening on the screen. Say one short line like 'Here you go.' Do not describe pictures you cannot see." }); }
     if (c.function.name === "look_camera") { actions.push({ action: "look", question: String(a.question || "").slice(0, 300) }); return JSON.stringify({ ok: true, note: "The camera is opening and will take the photo in 3 seconds. Say one short line like 'Sure, hold it up for me.' The answer will show on screen by itself." }); }
     if (c.function.name === "heart_rate") { actions.push({ action: "heart" }); return JSON.stringify({ ok: true, started: true }); }
     if (c.function.name === "draft_email") {
