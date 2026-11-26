@@ -41,8 +41,8 @@ const TOOLS = [
     parameters: { type: "object", properties: { to: { type: "string", description: "Recipient email address" }, subject: { type: "string" }, body: { type: "string", description: "The full email text, written for the user, plain text" } }, required: ["to", "subject", "body"] } } },
   { type: "function", function: { name: "find_email", description: "Search the user's Gmail (read or unread) and return the newest matches with their full text. For example query 'from:vercel' to find a Vercel notification. Also opens it on the user's screen.",
     parameters: { type: "object", properties: { query: { type: "string", description: "Gmail search, e.g. 'from:vercel' or 'from:vercel newer_than:7d'" } }, required: ["query"] } } },
-  { type: "function", function: { name: "mail_window", description: "Open or close the Mail window on the user's screen. close also closes an email that is open.",
-    parameters: { type: "object", properties: { do: { type: "string", enum: ["open", "close"] } }, required: ["do"] } } },
+  { type: "function", function: { name: "mail_window", description: "Open or close the Mail window on the user's screen. close also closes an email that is open. Call it with the argument named do, set to open or close.",
+    parameters: { type: "object", properties: { do: { type: "string", enum: ["open", "close"] }, state: { type: "string", description: "Same as do" } } } } },
 ];
 // Only offered when a draft is waiting AND the user's last message came after it was written.
 const SEND_TOOLS = [
@@ -145,7 +145,7 @@ async function runTool(c, actions, pending, tasks) {
       actions.push({ action: "mail_read", from: m.from, subject: m.subject, text: m.body.slice(0, 1500) });
       return JSON.stringify({ found: true, from: m.from, subject: m.subject, text: m.body.slice(0, 2500) });
     }
-    if (c.function.name === "mail_window") { actions.push({ action: "mail_window", do: a.do === "close" ? "close" : "open" }); return JSON.stringify({ ok: true }); }
+    if (c.function.name === "mail_window") { actions.push({ action: "mail_window", do: /close/i.test(String(a.do || a.state || a.action || "")) ? "close" : "open" }); return JSON.stringify({ ok: true }); }
     if (c.function.name === "send_draft") {
       if (!pending) return JSON.stringify({ error: "No draft is waiting." });
       if (actions.some(x => x.action === "draft_saved")) return JSON.stringify({ error: "A draft was just written. Ask the user first; do not send in the same turn." });
@@ -221,7 +221,11 @@ module.exports = async (req, res) => {
     for (let step = 0; step < 4; step++) {
       const useTools = toolList.length > 0 && step < 3;
       try { msg = await callChat(messages, useTools); }
-      catch (e) { if (!useTools) throw e; msg = await callChat(messages, false); } // some models reject tools: answer without them
+      catch (e) {                                  // some models reject tools: answer without them. A bad tool call must never crash the reply.
+        const toolErr = x => /tool/i.test(String(x && x.message));
+        if (!useTools) { if (toolErr(e)) { msg = { content: "" }; break; } throw e; }
+        try { msg = await callChat(messages, false); } catch (e2) { if (toolErr(e2)) { msg = { content: "" }; break; } throw e2; }
+      }
       const calls = useTools && msg.tool_calls;
       if (!calls || !calls.length) break;
       messages.push({ role: "assistant", content: msg.content || "", tool_calls: calls });
