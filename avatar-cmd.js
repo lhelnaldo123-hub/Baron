@@ -13,12 +13,13 @@
     const head = has(/\b(head|neck)\b/);
 
     // ---------- whole-body turning ----------
-    if (!head && has(/\b(face me|face front|face forward|front again|turn to face|turn (to|toward|towards) me|turn to front)\b/)) out.push({ k: "turn", to: 0 });
-    else if (has(/\b(360|full circle|full turn|full rotation|spin|twirl|pirouette)\b/)) out.push({ k: "turn", by: 360 });
-    else if (!head && has(/\b(180|turn around|turn round|about face|turn back|back (to|toward|towards) me|show( me)? back|turn back to me|rotate around)\b/))
-      out.push({ k: "turn", to: has(/\bback\b/) ? 180 : "flip" });
+    const turnWord = has(/\b(turn|spin|rotate|face|twirl|pivot|swivel|go|come|flip|show)\b/);
+    if (!head && has(/\b(your back|show.*\bback\b|back (to|toward|towards) me|back on me)\b/)) out.push({ k: "turn", to: 180 });
+    else if (!head && has(/\b(face (me|front|forward|camera|screen|us)|front again|turn (to|toward|towards) (me|front|face)|turn to face|face this way|look at me)\b/) && !has(/\blook at me\b/)) out.push({ k: "turn", to: 0 });
+    else if (has(/\b(360|full circle|full turn|full rotation|spin|twirl|pirouette)\b/) && !has(/\bspin (around|round)\b/)) out.push({ k: "turn", by: 360 });
     else if (!head && has(/\b(sideways|side on|profile|side view)\b/)) out.push({ k: "turn", to: 90 });
-    else if (!head && has(/\b(turn|rotate)\b.*\b(left|right)\b/) && !has(/\b(look|eyes)\b/)) out.push({ k: "turn", to: has(/\bleft\b/) ? 90 : -90 });
+    else if (!head && has(/\b(turn|rotate|go|come)\b.*\b(left|right)\b/) && !has(/\b(look|eyes|hand|arm)\b/)) out.push({ k: "turn", to: has(/\bleft\b/) ? 90 : -90 });
+    else if (!head && turnWord && has(/\b(180|around|round|back|again|other way|other side|about face|reverse|opposite)\b/) && !has(/\b(hand|hands|arm|arms)\b/)) out.push({ k: "turn", to: "flip" });   // each time he flips to the other side
 
     // ---------- face ----------
     if (has(/\b(smile|grin|happy|cheerful|laugh|glad)\b/)) out.push({ k: "face", e: "smile" });
@@ -48,10 +49,12 @@
     else if (has(/\bstretch\b/)) pose = "stretch";
     else if (has(/\bpalms?\b/)) pose = "palms";
     else if (has(/\b(open|spread|extend)\b.*\barms?\b|\bwelcome\b/)) pose = "open";
-    else if (has(/\b(lower|put down|drop|relax|rest)\b/) && (arm || !head)) pose = "down";
+    else if (has(/\b(at ease|reset|put (them|em) down|them down|stop waving|stop that|by (your )?sides?|stand normally|stand normal|relax)\b/) && !has(/\bface\b/)) pose = "down";
+    else if (has(/\b(lower|put down|drop|rest)\b/) && (arm || !head)) pose = "down";
     else if (arm && has(/\bdown\b/)) pose = "down";
-    else if (has(/\bat your sides?\b/)) pose = "down";
-    else if (arm && has(/\b(raise|lift|put up|hold up|hands up|arms up|up)\b/) && !has(/\blook\b/)) pose = "raise";
+    else if (has(/\bat (your )?sides?\b/)) pose = "down";
+    else if (has(/\b(raise|lift|put up|hold up|hands up|arms up|reach up|reach for (the )?sky|put (them|em) up|them up|surrender|high five)\b/) && !has(/\b(look|head|eyes)\b/)) pose = "raise";
+    else if (arm && has(/\bup\b/) && !has(/\b(look|head|eyes)\b/)) pose = "raise";
     else if (has(/\b(move|swing|wiggle|flex|exercise)\b.*\b(arm|arms|hand|hands)\b/)) pose = "move";
     if (pose) {
       const forced = { fold: "B", stretch: "B", palms: "B", open: "B" }[pose];
