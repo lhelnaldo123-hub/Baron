@@ -142,8 +142,8 @@ async function runTool(c, actions, pending, tasks) {
       const list = await mail.find(String(a.query || ""), 1);
       if (!list.length) return JSON.stringify({ found: false });
       const m = list[0];
-      actions.push({ action: "mail_read", from: m.from, subject: m.subject, text: m.body.slice(0, 1500) });
-      return JSON.stringify({ found: true, from: m.from, subject: m.subject, text: m.body.slice(0, 2500) });
+      actions.push({ action: "mail_read", from: m.from, subject: m.subject, text: m.body.slice(0, 1200) });
+      return JSON.stringify({ found: true, from: m.from, subject: m.subject, text: m.body.slice(0, 1500) });
     }
     if (c.function.name === "mail_window") { actions.push({ action: "mail_window", do: /close/i.test(String(a.do || a.state || a.action || "")) ? "close" : "open" }); return JSON.stringify({ ok: true }); }
     if (c.function.name === "send_draft") {
@@ -202,20 +202,32 @@ module.exports = async (req, res) => {
     const pending = /^[\w-]{1,64}$/.test(String(pendingDraft || "")) ? String(pendingDraft) : "";
     const toolList = [...T.TASK_TOOLS, ...APP_TOOLS, ...(mail.configured() ? TOOLS : []), ...(mail.configured() && pending ? SEND_TOOLS : []), ...(vision ? [ACTION_TOOL] : []), ...(avatar ? [AVATAR_TOOL, AVATAR_GESTURE] : [])];
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
+    // Free Groq plans cap tokens per minute per model. On a limit: wait a few seconds and retry, then try another model (each has its own limit).
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const chain = [...new Set([model, process.env.GROQ_FALLBACK_MODEL, "openai/gpt-oss-120b", "llama-3.3-70b-versatile"].filter(Boolean))];
     const callChat = async (msgs, withTools) => {
-      const r = await fetch(`${GROQ}/chat/completions`, {
-        method: "POST",
-        headers: { ...auth_h, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model,
-          messages: msgs,
-          max_tokens: spoken ? 600 : 1500,
-          ...(model.includes("gpt-oss") && { reasoning_effort: "low" }),
-          ...(withTools && { tools: toolList, tool_choice: "auto" }),
-        }),
-      });
-      if (!r.ok) throw new Error("Thinking failed: " + (await r.text()));
-      return (await r.json()).choices[0].message;
+      let lastErr = "";
+      for (const m of chain) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          const r = await fetch(`${GROQ}/chat/completions`, {
+            method: "POST",
+            headers: { ...auth_h, "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: m,
+              messages: msgs,
+              max_tokens: spoken ? 400 : 1200,
+              ...(m.includes("gpt-oss") && { reasoning_effort: "low" }),
+              ...(withTools && { tools: toolList, tool_choice: "auto" }),
+            }),
+          });
+          if (r.ok) return (await r.json()).choices[0].message;
+          const t = await r.text(); lastErr = t;
+          if (r.status !== 429) throw new Error("Thinking failed: " + t);
+          const sec = parseFloat((t.match(/try again in ([\d.]+)s/i) || [])[1]);
+          if (attempt === 0 && sec > 0 && sec <= 6) await wait(sec * 1000 + 300); else break;   // short wait: retry same model; long wait: next model
+        }
+      }
+      throw new Error("Thinking failed: " + lastErr);
     };
     let msg;
     for (let step = 0; step < 4; step++) {
