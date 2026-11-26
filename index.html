@@ -182,6 +182,54 @@
   .zc .zb button.pri { background: var(--c2); border: 0; color: #fff; }
   .zc .zrow { display: flex; gap: .5rem; flex-wrap: wrap; } .zc .zrow button { flex: 1; }
   @media (prefers-reduced-motion: reduce) { .tile, .hudring .sp { animation: none !important; } .zc { transition-duration: .01s; } }
+
+  /* ---------- one hub window (home / chat / mail / alerts) ---------- */
+  .hud { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr); padding: 0 .8rem .2rem; }
+  .core { grid-column: 1; grid-row: 1; }
+  .ringbox .bars { height: 46px; width: 58px; flex: none; align-self: flex-end; margin-bottom: 10px; }
+  body.vm .hud { grid-template-rows: minmax(0, 1fr); }
+  body.vm #hub { display: none !important; }
+  #hub { flex: 0 0 auto; margin: 0 .7rem .45rem; height: 34dvh; position: relative; overflow: hidden; display: flex; flex-direction: column;
+    transition: height .32s cubic-bezier(.3,.8,.3,1); background: linear-gradient(165deg, #0b2d63e6, #041230ee); border: 1px solid #3aa8ff99; }
+  #hub.t { height: 62dvh; } #hub.m { height: 56px; }
+  #hub::before, #hub::after { content: ""; position: absolute; width: 20px; height: 20px; border: 2px solid #7be0ff; pointer-events: none; opacity: .9; }
+  #hub::before { left: 7px; top: 7px; border-right: 0; border-bottom: 0; border-radius: 8px 0 0 0; }
+  #hub::after { right: 7px; bottom: 7px; border-left: 0; border-top: 0; border-radius: 0 0 8px 0; }
+  .hh { flex: none; padding: .35rem .7rem .1rem; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .grab { display: block; width: 42px; height: 4px; border-radius: 3px; background: #7be0ff; opacity: .75; margin: 0 auto .25rem; box-shadow: 0 0 8px #3cc8ff; }
+  .tabs { display: flex; }
+  .tabs button { flex: 1; border: 0; background: none; color: #8fb4dd; letter-spacing: .14em; font-size: .64rem; padding: .3rem 0 .4rem; border-bottom: 2px solid transparent; }
+  .tabs button.on { color: #bff0ff; border-color: #5fd6ff; text-shadow: 0 0 10px #3cc8ff; }
+  .tabs b { display: inline-block; min-width: 15px; height: 15px; line-height: 15px; border-radius: 8px; background: #ff5a7a; color: #fff; font-size: .6rem; letter-spacing: 0; margin-left: .25rem; vertical-align: 1px; }
+  .tabs b[hidden] { display: none; }
+  .pv { display: none; font-size: .82rem; color: #bfe6ff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: .1rem .2rem; }
+  #hub.m .tabs { display: none; } #hub.m .pv { display: block; }
+  .hv { flex: 1; min-height: 0; overflow: hidden; }
+  .ht { display: flex; width: 400%; height: 100%; transition: transform .3s cubic-bezier(.3,.8,.3,1); }
+  #hub[data-p="1"] .ht { transform: translateX(-25%); } #hub[data-p="2"] .ht { transform: translateX(-50%); } #hub[data-p="3"] .ht { transform: translateX(-75%); }
+  .hp { flex: 0 0 25%; min-width: 0; height: 100%; overflow-y: auto; touch-action: pan-y; display: flex; flex-direction: column; gap: .5rem; padding: .3rem .85rem .8rem; }
+  .hp::-webkit-scrollbar { width: 0; }
+  #hub #chat { flex: 1 1 auto; max-height: none; mask-image: none; -webkit-mask-image: none; padding: 0; }
+  #hub #chat:empty { display: flex; }
+  #hub .a .b { background: #0a2a5acc; border: 1px solid #3aa8ff88; box-shadow: 0 0 14px -4px #1b7dff; }
+  #hub .u .b { background: #1b4fb8cc; border: 1px solid #6bb8ff88; }
+  .clk { text-align: center; line-height: 1.1; padding-top: .1rem; }
+  .clk b { display: block; font-size: 2.3rem; font-weight: 300; letter-spacing: .06em; color: #bff0ff; text-shadow: 0 0 18px #3cc8ff; }
+  .clk span { font-size: .75rem; letter-spacing: .14em; color: #8fb4dd; text-transform: uppercase; }
+  .chips { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .45rem; }
+  .chip { border: 1px solid #3aa8ff66; background: #07163acc; border-radius: 12px; padding: .45rem .5rem; text-align: left; color: var(--fg); min-width: 0; }
+  .chip i { display: block; font-style: normal; font-size: .56rem; letter-spacing: .16em; color: #7be0ff; }
+  .chip b { display: block; font-size: .85rem; font-weight: 500; margin-top: .1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .list { display: flex; flex-direction: column; gap: .45rem; }
+  .row { border: 1px solid #3aa8ff88; border-left: 3px solid #5fd6ff; border-radius: 12px; background: #0a2a5acc; padding: .5rem .7rem; touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+  .row.alert { border-left-color: #ffd36b; }
+  .row .rt { display: flex; align-items: center; gap: .4rem; font-size: .6rem; letter-spacing: .14em; color: #7be0ff; }
+  .row.alert .rt { color: #ffd36b; }
+  .row .rt svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  .row b { display: block; font-size: .88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .sj { display: block; font-size: .78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .empty { margin: 1.2rem 0 .4rem; text-align: center; color: #8fb4dd; font-size: .88rem; }
+  .hp .wide { border: 1px solid #3aa8ff88; background: #07163acc; border-radius: 12px; padding: .6rem; color: #cfe9ff; font: inherit; font-size: .85rem; }
 </style>
 </head>
 <body data-s="idle">
@@ -195,11 +243,7 @@
     <button class="ib" id="vset" aria-label="Settings"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button>
   </div>
 
-  <div id="chat" aria-live="polite"></div>
-
   <main class="hud" id="hud">
-    <div class="slot" data-i="0"></div>
-    <div class="slot" data-i="1"></div>
     <div class="core"><div class="ringbox">
       <svg class="hudring" viewBox="0 0 200 200" aria-hidden="true">
         <g class="sp"><circle cx="100" cy="100" r="98" stroke-width="1.4" stroke-dasharray="70 14 150 22 40 18"/></g>
@@ -207,14 +251,25 @@
         <circle cx="100" cy="100" r="80" stroke-width="1" stroke-dasharray="1 5" opacity=".7"/>
         <g class="sp fs"><circle cx="100" cy="100" r="74" stroke-width="2.5" stroke-dasharray="40 60 18 90" opacity=".85"/></g>
       </svg>
+      <div class="bars" aria-hidden="true"></div>
       <div class="orbw"><span class="ring"></span><span class="ring r2"></span>
         <button class="orb" id="orb" aria-label="Tap to talk"><i></i><i></i><i></i>
           <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>
         </button></div>
+      <div class="bars" aria-hidden="true"></div>
     </div></div>
-    <div class="slot" data-i="2"></div>
-    <div class="slot wave"><div class="glass"><div class="bars" aria-hidden="true"></div><div class="bars" aria-hidden="true"></div></div></div>
   </main>
+  <section id="hub" class="glass n" data-p="0">
+    <div class="hh"><i class="grab"></i>
+      <div class="tabs"><button data-p="0" class="on">HOME</button><button data-p="1">CHAT<b hidden></b></button><button data-p="2">MAIL<b hidden></b></button><button data-p="3">ALERTS<b hidden></b></button></div>
+      <div class="pv"></div></div>
+    <div class="hv"><div class="ht">
+      <div class="hp" id="hp0"></div>
+      <div class="hp" id="hp1"><div id="chat" aria-live="polite"></div></div>
+      <div class="hp" id="hp2"></div>
+      <div class="hp" id="hp3"></div>
+    </div></div>
+  </section>
   <p id="st">Tap the orb to start talking</p>
   <div class="dots" aria-hidden="true"><b></b><b></b><b></b></div>
 
@@ -267,6 +322,7 @@
     </form>
   </div>
 
+<script src="/skin.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const player = $("#a"), chat = $("#chat");
@@ -818,32 +874,76 @@ $("#gconn").onclick = async () => {
   try { const d = await post("/api/mail", { action: "link" }); location.href = d.url; }
   catch (e) { $("#vmsg").textContent = e.message; }
 };
-/* ---------- floating message & alert panels: tap one to zoom in, tap close to send it back ---------- */
+/* ---------- Jarvis hub: ONE window for home (time, battery...), chat, mail and alerts. Swipe it. ---------- */
 const Pop = (() => {
   const ICON = {
     mail: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>',
     alert: '<svg viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 6 2 7 2 7H4s2-1 2-7M10 20a2 2 0 0 0 4 0"/></svg>'
   };
-  const slots = [...document.querySelectorAll(".slot[data-i]")];
-  let items = [], zoom = null, pending = false;
+  const hub = $("#hub"), P = [0, 1, 2, 3].map(i => $("#hp" + i)), tabs = [...hub.querySelectorAll(".tabs button")], pv = hub.querySelector(".pv");
+  let items = [], zoom = null, pending = false, page = 0, mailMsg = "Checking mail…", unreadChat = 0, noClick = 0;
   const gone = new Set();                                   // dismissed this session
+  const SIZES = ["m", "n", "t"];
   const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
   const icon = k => { const s = el("span"); s.innerHTML = ICON[k] || ICON.alert; return s.firstChild; };
   const place = (n, r) => { n.style.left = r.left + "px"; n.style.top = r.top + "px"; n.style.width = r.width + "px"; n.style.height = r.height + "px"; };
+  const mailsOf = () => items.filter(i => i.kind === "mail"), alertsOf = () => items.filter(i => i.kind === "alert");
 
-  function tile(it, more) {
-    const b = el("button", "tile glass" + (it ? "" : " empty"));
-    if (!it) { b.disabled = true; b.append(el("i"), el("i"), el("i")); return b; }
-    const tr = el("div", "tr"); tr.append(icon(it.kind), el("span", "", it.kind === "mail" ? "MAIL" : "ALERT"));
-    if (more > 0) tr.append(el("em", "", "+" + more)); else tr.append(el("span", "dot"));
+  /* ---- sizes + pages ---- */
+  function setSize(s) { hub.classList.remove("m", "n", "t"); hub.classList.add(s); try { localStorage.setItem("jv-hub", s); } catch (e) {} if (s !== "m") badges(); }
+  const curSize = () => SIZES.find(s => hub.classList.contains(s)) || "n";
+  const bump = d => setSize(SIZES[Math.max(0, Math.min(2, SIZES.indexOf(curSize()) + d))]);
+  function show(p) {
+    page = Math.max(0, Math.min(3, p)); hub.dataset.p = page;
+    tabs.forEach((b, i) => b.classList.toggle("on", i === page));
+    if (curSize() === "m") setSize("n");
+    if (page === 1) { unreadChat = 0; chat.scrollTop = chat.scrollHeight; }
+    badges();
+  }
+  function badges() {
+    const n = [0, page === 1 ? 0 : unreadChat, mailsOf().length, alertsOf().length];
+    tabs.forEach((b, i) => { const x = b.querySelector("b"); if (!x) return; x.hidden = !n[i]; x.textContent = n[i]; });
+    const cm = $("#cm"), ca = $("#ca");
+    if (cm) cm.textContent = mailsOf().length ? mailsOf().length + " unread" : (/connect|token|auth|gmail|google/i.test(mailMsg) ? "not connected" : "none");
+    if (ca) ca.textContent = alertsOf().length ? alertsOf().length + " new" : "none";
+  }
+
+  /* ---- drag a row sideways to clear it, tap it to open ---- */
+  function swipeOut(node, onGone, onTap) {
+    let sx = 0, sy = 0, on = false, dx = 0, moved = false;
+    node.addEventListener("pointerdown", e => { on = true; moved = false; sx = e.clientX; sy = e.clientY; dx = 0; node.style.transition = "none"; try { node.setPointerCapture(e.pointerId); } catch (x) {} });
+    node.addEventListener("pointermove", e => {
+      if (!on) return; dx = e.clientX - sx;
+      if (Math.abs(dx) > 8) { moved = true; node.style.transform = "translateX(" + dx + "px)"; node.style.opacity = 1 - Math.min(1, Math.abs(dx) / 260); }
+    });
+    const end = e => {
+      if (!on) return; on = false;
+      node.style.transition = "transform .22s, opacity .22s";
+      if (Math.abs(dx) > 90) { node.style.transform = "translateX(" + (dx > 0 ? 115 : -115) + "%)"; node.style.opacity = 0; setTimeout(onGone, 210); }
+      else { node.style.transform = ""; node.style.opacity = 1; if (e.type === "pointerup" && !moved && Math.abs(e.clientY - sy) < 10) onTap(); }
+    };
+    node.addEventListener("pointerup", end); node.addEventListener("pointercancel", end);
+  }
+  function row(it) {
+    const b = el("div", "row " + it.kind); b.setAttribute("role", "button");
+    const tr = el("div", "rt"); tr.append(icon(it.kind), el("span", "", it.kind === "mail" ? "MAIL" : "ALERT"));
     b.append(tr, el("b", "", it.title), el("span", "sj", it.sub || ""));
-    b.onclick = () => open(it, b);
+    swipeOut(b, () => { gone.add(it.id); items = items.filter(x => x !== it); draw(); }, () => open(it, b));
     return b;
   }
   function draw() {
     if (zoom) { pending = true; return; }
-    slots.forEach((s, i) => s.replaceChildren(tile(items[i], i === slots.length - 1 ? items.length - slots.length : 0)));
+    const m = mailsOf(), a = alertsOf();
+    const ml = el("div", "list"); m.forEach(i => ml.append(row(i)));
+    const rb = el("button", "wide", "Refresh mail"); rb.onclick = () => refreshMail(true);
+    P[2].replaceChildren(...(m.length ? [ml] : [el("p", "empty", mailMsg)]), rb);
+    const al = el("div", "list"); a.forEach(i => al.append(row(i)));
+    P[3].replaceChildren(...(a.length ? [al, el("p", "help", "Swipe an alert sideways to clear it.")] : [el("p", "empty", "No alerts. You're all clear.")]));
+    const top = a[0] || m[0]; if (top && !/^Jarvis:/.test(pv.textContent)) pv.textContent = (top.kind === "mail" ? "Mail: " : "Alert: ") + top.title;
+    badges();
   }
+
+  /* ---- zoom a mail or alert to read it ---- */
   function open(it, tileEl) {
     if (zoom) return;
     const r = tileEl.getBoundingClientRect();
@@ -855,15 +955,13 @@ const Pop = (() => {
     if (it.render) it.render(body, { close, dismiss: () => close(true) });
     else {
       body.append(el("h4", "", it.title), el("p", "", it.text || it.sub || ""));
-      if (it.actions || true) {
-        const row = el("div", "zrow");
-        (it.actions || []).forEach(a => { const ab = el("button", "pri", a.label); ab.onclick = () => { close(); a.fn(); }; row.append(ab); });
-        const d = el("button", "", "Dismiss"); d.onclick = () => close(true); row.append(d); body.append(row);
-      }
+      const row = el("div", "zrow");
+      (it.actions || []).forEach(a => { const ab = el("button", "pri", a.label); ab.onclick = () => { close(); a.fn(); }; row.append(ab); });
+      const d = el("button", "", "Dismiss"); d.onclick = () => close(true); row.append(d); body.append(row);
     }
     c.append(head, body); document.body.append(veil, c);
     tileEl.style.visibility = "hidden"; zoom = { it, tileEl, c, veil };
-    c.getBoundingClientRect();                                // lock in the start size, then grow
+    c.getBoundingClientRect();
     const W = Math.min(innerWidth - 24, 480), H = Math.min(innerHeight * .55, 460);
     place(c, { left: (innerWidth - W) / 2, top: Math.max(56, (innerHeight - H) / 2), width: W, height: H });
     veil.classList.add("on"); c.classList.add("open");
@@ -871,7 +969,7 @@ const Pop = (() => {
   function close(remove) {
     if (!zoom) return; const z = zoom; zoom = null;
     z.c.classList.remove("open"); z.veil.classList.remove("on");
-    place(z.c, z.tileEl.getBoundingClientRect());             // shrink back to where it was
+    if (z.tileEl.isConnected) place(z.c, z.tileEl.getBoundingClientRect());
     setTimeout(() => {
       z.c.remove(); z.veil.remove(); z.tileEl.style.visibility = "";
       if (remove) { gone.add(z.it.id); items = items.filter(i => i !== z.it); pending = true; }
@@ -905,22 +1003,84 @@ const Pop = (() => {
       body.append(el("h4", "", m.from), el("p", "", m.subject), el("p", "help", m.snippet), note, row, out);
     };
   }
-  const kindOf = k => items.filter(i => i.kind === k);
-  return {
+
+  /* ---- home page: clock, battery, network, counts ---- */
+  P[0].innerHTML = '<div class="clk"><b id="hc">--:--</b><span id="hd"></span></div><div class="chips">' +
+    '<button class="chip"><i>BATTERY</i><b id="cb">n/a</b></button><button class="chip"><i>NETWORK</i><b id="cn">online</b></button>' +
+    '<button class="chip" data-go="2"><i>MAIL</i><b id="cm">none</b></button><button class="chip" data-go="3"><i>ALERTS</i><b id="ca">none</b></button>' +
+    '<button class="chip"><i>JARVIS</i><b id="cs">Ready</b></button><button class="chip"><i>VOICE</i><b id="cv">Default</b></button></div>';
+  P[0].querySelectorAll("[data-go]").forEach(b => b.onclick = () => show(+b.dataset.go));
+  let bat = null;
+  const STATE = { idle: "Ready", listen: "Listening", think: "Thinking", speak: "Speaking" };
+  function home() {
+    const d = new Date();
+    $("#hc").textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    $("#hd").textContent = d.toLocaleDateString([], { weekday: "long", day: "numeric", month: "long" });
+    $("#cn").textContent = navigator.onLine ? "online" : "offline";
+    $("#cs").textContent = STATE[document.body.dataset.s] || "Ready";
+    $("#cv").textContent = (voices.find(v => v.id === voice) || {}).name || "Default";
+    $("#cb").textContent = bat ? Math.round(bat.level * 100) + "%" + (bat.charging ? " ⚡" : "") : "n/a";
+  }
+  home(); setInterval(() => { if (!document.hidden) home(); }, 1000);
+  try {
+    if (navigator.getBattery) navigator.getBattery().then(b => {
+      bat = b; home();
+      const chk = () => { home(); if (b.level <= .15 && !b.charging) api.alert({ id: "batt", title: "Battery low", text: "Your phone is at " + Math.round(b.level * 100) + "%. Plug it in soon." }); else api.clearAlert("batt"); };
+      b.addEventListener("levelchange", chk); b.addEventListener("chargingchange", chk); chk();
+    });
+  } catch (e) {}
+  addEventListener("offline", () => api.alert({ id: "off", title: "No internet", text: "I need to be online to talk." }));
+  addEventListener("online", () => { api.clearAlert("off"); home(); });
+
+  /* ---- gestures: swipe sideways = next/previous page. Swipe the top bar up/down = bigger/smaller. ---- */
+  tabs.forEach((b, i) => b.onclick = () => show(i));
+  hub.querySelector(".grab").onclick = () => bump(curSize() === "m" ? 1 : -1);
+  pv.onclick = () => setSize("n");
+  let g0 = null;
+  hub.addEventListener("pointerdown", e => { if (e.target.closest(".row")) return; g0 = { x: e.clientX, y: e.clientY, head: !!e.target.closest(".hh") }; });
+  hub.addEventListener("pointerup", e => {
+    if (!g0) return;
+    const dx = e.clientX - g0.x, dy = e.clientY - g0.y, ax = Math.abs(dx), ay = Math.abs(dy), head = g0.head; g0 = null;
+    if (ax > 50 && ax > ay * 1.5) { show(page + (dx < 0 ? 1 : -1)); noClick = performance.now() + 300; }
+    else if (head && ay > 30 && ay > ax * 1.3) { bump(dy > 0 ? -1 : 1); noClick = performance.now() + 300; }
+  });
+  hub.addEventListener("pointercancel", () => { g0 = null; });
+  hub.addEventListener("click", e => { if (performance.now() < noClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+
+  /* ---- things that happen on their own ---- */
+  new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => {
+    if (!(n.classList && n.classList.contains("a")) || n.classList.contains("wait")) return;
+    pv.textContent = "Jarvis: " + ((n.querySelector(".b") || {}).textContent || "");
+    if (page !== 1 || curSize() === "m") { unreadChat++; badges(); }
+  }))).observe(chat, { childList: true });
+  const st = $("#st"); let lastErr = "";
+  new MutationObserver(() => {
+    const t = st.textContent;
+    if (/^(Error|Microphone)/.test(t)) { if (t !== lastErr) { lastErr = t; api.alert({ id: "e" + Date.now(), title: "Problem", text: t }); } } else lastErr = "";
+  }).observe(st, { childList: true, characterData: true, subtree: true });
+
+  const api = {
     setMail(list) {
       const mails = list.filter(m => !gone.has("m" + m.id)).map(m => ({ id: "m" + m.id, kind: "mail",
         title: (m.from || "").replace(/<.*>/, "").trim() || m.from, sub: m.subject, render: mailBody(m) }));
+      mailMsg = mails.length ? "" : "No unread mail.";
       items = [...items.filter(i => i.kind !== "mail"), ...mails]; draw();
     },
+    status(t) { mailMsg = t; if (!mailsOf().length) draw(); },
     alert(a) {                                                // { id, title, text, actions:[{label, fn}] }
       const id = "a" + (a.id || Date.now());
       if (gone.has(id)) return;
       items = [{ id, kind: "alert", title: a.title, sub: a.text, text: a.text, actions: a.actions }, ...items.filter(i => i.id !== id)]; draw();
     },
-    clearAlert(id) { items = items.filter(i => i.id !== "a" + id); draw(); }
+    clearAlert(id) { items = items.filter(i => i.id !== "a" + id); draw(); },
+    show
   };
+  let sz = "n"; try { sz = localStorage.getItem("jv-hub") || "n"; } catch (e) {}
+  setSize(SIZES.includes(sz) ? sz : "n"); draw();
+  return api;
 })();
 window.jvAlert = (title, text, actions) => Pop.alert({ title, text, actions });
+window.jvHub = Pop;
 Pop.setMail([]);
 
 async function refreshMail(manual) {
@@ -930,10 +1090,11 @@ async function refreshMail(manual) {
     Pop.clearAlert("mailerr"); Pop.setMail(d.emails);
     if (manual && !d.emails.length) Pop.alert({ id: "inbox", title: "Inbox clear", text: "No unread emails right now." });
   } catch (e) {
+    Pop.status("Mail: " + e.message);
     if (manual) Pop.alert({ id: "mailerr", title: "Email", text: e.message, actions: [{ label: "Open settings", fn: () => { $("#vmsg").textContent = ""; $("#sheet").hidden = false; } }] });
   }
 }
-$("#mailb").onclick = () => refreshMail(true);
+$("#mailb").onclick = () => { Pop.show(2); refreshMail(true); };
 setTimeout(refreshMail, 2500);
 setInterval(() => { if (!document.hidden) refreshMail(); }, 120000);
 </script>
