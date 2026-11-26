@@ -1,6 +1,6 @@
 // Looks at a photo from the phone camera and answers about it. Key lives in Vercel environment variables.
 const GROQ = "https://api.groq.com/openai/v1";
-const MODELS = [process.env.GROQ_VISION_MODEL, "meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"].filter(Boolean);
+const MODELS = [...new Set([process.env.GROQ_VISION_MODEL, "qwen/qwen3.8-27b", "qwen/qwen3.6-27b"].filter(Boolean))];
 const cors = require("./_cors");
 const auth = require("./_auth");
 
@@ -27,8 +27,8 @@ module.exports = async (req, res) => {
     const q = String(question).trim().slice(0, 500);
     const name = String(langName).replace(/[^\p{L} ]/gu, "").slice(0, 30);
     const text = (q ? "The user asks: " + q : "The user did not say what they want. Tell them what this is.") + (name ? "\nThe user speaks " + name + "." : "");
-    const body = m => JSON.stringify({
-      model: m, temperature: 0.3, max_tokens: 1200,
+    const body = (m, think) => JSON.stringify({
+      model: m, temperature: 0.3, max_tokens: 2500, ...(think && { reasoning_effort: "low" }),
       messages: [
         { role: "system", content: SYSTEM },
         { role: "user", content: [{ type: "text", text }, { type: "image_url", image_url: { url: "data:image/jpeg;base64," + b64 } }] },
@@ -36,8 +36,10 @@ module.exports = async (req, res) => {
     });
     let raw = "", lastErr = "";
     for (const m of MODELS) {
-      const r = await fetch(`${GROQ}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: body(m) });
-      if (r.ok) { raw = ((await r.json()).choices?.[0]?.message?.content || "").trim(); if (raw) break; }
+      const call = think => fetch(`${GROQ}/chat/completions`, { method: "POST", headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" }, body: body(m, think) });
+      let r = await call(true);
+      if (r.status === 400) { const t = await r.text(); if (/reasoning/i.test(t)) r = await call(false); else { lastErr = t.slice(0, 200); continue; } }   // this model does not take reasoning_effort
+      if (r.ok) { raw = ((await r.json()).choices?.[0]?.message?.content || "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim(); if (raw) break; }
       else lastErr = (await r.text()).slice(0, 200);
     }
     if (!raw) throw new Error("Could not look at that" + (lastErr ? ": " + lastErr : "."));
