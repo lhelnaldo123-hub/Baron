@@ -136,10 +136,45 @@ async function draftReply(id, note = "") {
   return { id: created.id, to: m.replyTo || m.from, subject: m.subject, body };
 }
 
+
+// Find emails by a Gmail search (read or unread), newest first. Used for "find the Vercel email".
+async function find(query, n = 3) {
+  const q = encodeURIComponent(oneLine(query).slice(0, 120) || "in:inbox");
+  const list = await gmail(`messages?maxResults=${Math.min(5, n)}&q=${q}`);
+  const out = [];
+  for (const m of list.messages || []) {
+    const d = await full(m.id);
+    out.push({ id: m.id, from: d.from, subject: d.subject, body: d.body });
+  }
+  return out;
+}
+
+// A brand new email (not a reply). The address is checked and line breaks are removed so nothing can be injected into headers.
+const EMAIL = /^[^\s<>@,;"]+@[^\s<>@,;"]+\.[^\s<>@,;"]+$/;
+function rawNew(to, subject, body) {
+  const lines = [
+    `To: ${to}`,
+    `Subject: =?UTF-8?B?${Buffer.from(subject, "utf8").toString("base64")}?=`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    (Buffer.from(body, "utf8").toString("base64").match(/.{1,76}/g) || []).join("\r\n"),
+  ];
+  return Buffer.from(lines.join("\r\n"), "utf8").toString("base64url");
+}
+async function draftNew(to, subject, body) {
+  to = oneLine(to); subject = oneLine(subject).slice(0, 200) || "(no subject)";
+  body = String(body || "").trim().slice(0, 5000);
+  if (!EMAIL.test(to)) throw new Error("I need a valid email address to write to.");
+  if (!body) throw new Error("The email has no text.");
+  const created = await gmail("drafts", { method: "POST", body: JSON.stringify({ message: { raw: rawNew(to, subject, body) } }) });
+  return { id: created.id, to, subject, body };
+}
+
 // Sends a draft that already exists. Callers must only do this after the user confirmed with a button tap.
 async function sendDraft(id) {
   if (!/^[\w-]{1,64}$/.test(String(id))) throw new Error("Bad draft id");
   return gmail("drafts/send", { method: "POST", body: JSON.stringify({ id: String(id) }) });
 }
 
-module.exports = { configured, inbox, unreadSince, draftReply, sendDraft, rawMessage };
+module.exports = { configured, inbox, unreadSince, draftReply, draftNew, find, sendDraft, rawMessage };
