@@ -208,7 +208,11 @@ module.exports = async (req, res) => {
       if (vision) form.append("prompt", "Jarvis. Scan. What do you see? Weather. Timer five minutes. Flip camera. Lock. Close. Next panel. Light mode. Dark mode.");
       if (code) form.append("language", code);
       const stt = await fetch(`${GROQ}/audio/transcriptions`, { method: "POST", headers: auth_h, body: form });
-      if (!stt.ok) throw new Error("Listening failed: " + (await stt.text()));
+      if (!stt.ok) {
+        const et = await stt.text();
+        if (/valid media|could not process|invalid_media|too short/i.test(et)) return res.json({ user: "", reply: "", say: "", mem: "" });   // a broken or empty recording: just listen again
+        throw new Error("Listening failed: " + et);
+      }
       const sj = await stt.json();
       const segs = Array.isArray(sj.segments) ? sj.segments : null;
       const kept = segs ? segs.filter(g => !((g.no_speech_prob > 0.55 && g.avg_logprob < -0.7) || g.avg_logprob < -1.4 || g.compression_ratio > 2.4)) : null;   // noise, TV, repeated gibberish
