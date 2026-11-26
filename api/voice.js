@@ -24,7 +24,7 @@ const SPOKEN =
   "Reply in the same language the user speaks, and switch if they switch. " +
   "If the user shares something worth remembering about themselves (name, preferences, family, plans), add one last line starting with MEM: followed by a short note in English. Otherwise omit the MEM line.";
 const VOICE_MODEL = process.env.GROQ_VOICE_MODEL || "openai/gpt-oss-20b";
-const JUNK = /^(thank you\.?|thanks\.?|thanks for watching\.?|thank you for watching\.?|you\.?|bye\.?|[.\s]*)$/i;
+const JUNK = /^([\s.,!?…♪\-]*|(thank you|thanks|thanks for watching|thank you for watching|please subscribe|like and subscribe|subtitles by.*|you|bye|bye-bye|hmm|mm|uh|um)[\s.,!?]*)$/i;
 const cors = require("./_cors");
 const auth = require("./_auth");
 const mail = require("./_gmail");
@@ -203,11 +203,16 @@ module.exports = async (req, res) => {
       const form = new FormData();
       form.append("file", new Blob([Buffer.from(audio, "base64")]), `clip.${ext}`);
       form.append("model", "whisper-large-v3-turbo");
+      form.append("response_format", "verbose_json");   // lets us drop sounds Whisper itself says are probably not speech
+      form.append("temperature", "0");
       if (vision) form.append("prompt", "Jarvis. Scan. What do you see? Weather. Timer five minutes. Flip camera. Lock. Close. Next panel. Light mode. Dark mode.");
       if (code) form.append("language", code);
       const stt = await fetch(`${GROQ}/audio/transcriptions`, { method: "POST", headers: auth_h, body: form });
       if (!stt.ok) throw new Error("Listening failed: " + (await stt.text()));
-      user = ((await stt.json()).text || "").trim();
+      const sj = await stt.json();
+      const segs = Array.isArray(sj.segments) ? sj.segments : null;
+      const kept = segs ? segs.filter(g => !((g.no_speech_prob > 0.55 && g.avg_logprob < -0.7) || g.avg_logprob < -1.4 || g.compression_ratio > 2.4)) : null;   // noise, TV, repeated gibberish
+      user = (kept ? kept.map(g => g.text).join(" ") : sj.text || "").replace(/\s+/g, " ").trim();
       if (JUNK.test(user)) user = "";
     }
     if (!user) return res.json({ user: "", reply: "", say: "", mem: "" });
