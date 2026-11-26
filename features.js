@@ -26,6 +26,9 @@
   #hp5 .add{display:flex;gap:.4rem} #hp5 .add input{flex:1;min-width:0;border:1px solid #3aa8ff88;background:#07163acc;color:#cfe9ff;border-radius:12px;padding:.5rem .7rem;font:inherit;font-size:.85rem}
   #hp5 .add button{border:0;border-radius:12px;background:#1c6dd0;color:#fff;padding:0 .9rem}
   .cpw{display:flex;gap:.2rem;flex-wrap:wrap}
+  .wklab{font-size:.78rem;color:#9fb6d8;margin:.5rem 0 .25rem}
+  #wakeph{width:100%;box-sizing:border-box;border:1px solid #3aa8ff88;background:#07163acc;color:#e8f4ff;border-radius:12px;padding:.55rem .7rem;font:inherit;font-size:.9rem;resize:vertical}
+  #wakers{margin-top:.4rem;border:1px solid #3aa8ff88;background:#07163acc;color:#cfe9ff;border-radius:10px;padding:.4rem .8rem;font:inherit;font-size:.8rem}
   #jvtoast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 84px);transform:translateX(-50%);z-index:9996;background:#0a2a5af2;color:#fff;border:1px solid #5fd6ffaa;border-radius:999px;padding:.55rem 1.1rem;font-size:.85rem;box-shadow:0 0 22px -6px #1b7dff;opacity:0;pointer-events:none;transition:opacity .25s;max-width:90vw;text-align:center}
   #jvtoast.on{opacity:1}
   #qz{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 8px);transform:translateX(-50%);z-index:9995;display:none;align-items:center;gap:.6rem;background:#0a2a5af2;color:#fff;border:1px solid #5fd6ffaa;border-radius:999px;padding:.4rem .5rem .4rem .9rem;font-size:.8rem;box-shadow:0 0 22px -6px #1b7dff;white-space:nowrap}
@@ -201,6 +204,21 @@
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   const WAKE = /\b(?:hey|hi|hello|ok|okay|yo|hay|hei)[ ,.!]*(?:jarvis|jarvas|jarves|jervis|garvis|jarvus|jarvice|jarvish)\b[ ,.!?]*(.*)$/i;
   let wantWake = lsGet("jv-wake", "0") === "1", rec = null, fired = 0, wakeT = 0, restartT = 0;
+  // What Jarvis says after "Hey Jarvis". One phrase per line in Settings; he picks one at random. Empty = he says nothing.
+  const WAKE_DEFAULT = ["Yes boss?", "What should I do for you?", "What's on your mind today?"];
+  const phrases = () => { const v = lsGet("jv-wakephrases", null); if (v === null) return WAKE_DEFAULT; return v.split("\n").map(x => x.trim()).filter(Boolean).slice(0, 8); };
+  const wkKey = t => "jv-wk:" + (typeof voice !== "undefined" ? voice : "") + ":" + t;
+  async function wakeAudio(t) {                               // made once with your Jarvis voice, then kept on the phone so the reply is instant
+    let a = lsGet(wkKey(t), ""); if (a) return a;
+    try { const v = await post("/api/speak", { text: t, voice }); a = v.audio || ""; if (a) { try { localStorage.setItem(wkKey(t), a); } catch (e) {} } } catch (e) {}
+    return a;
+  }
+  const prefetchWake = () => { phrases().forEach(t => wakeAudio(t)); };
+  const sayWake = async () => {
+    const list = phrases(); if (!list.length) return;
+    const t = list[Math.floor(Math.random() * list.length)], a = await wakeAudio(t);
+    if (a && inChat() && typeof playClip === "function") playClip(a);
+  };
   const inChat = () => { try { return !!on; } catch (e) { return false; } };
   const locked = () => { const l = $("#lock"); return !!(l && !l.hidden); };
   const wakeBtn = $("#wakeb");
@@ -214,7 +232,10 @@
     setTimeout(() => {
       vm.click();
       rest = String(rest || "").trim();
-      if (rest.split(/\s+/).filter(Boolean).length < 2) return;
+      if (rest.split(/\s+/).filter(Boolean).length < 2) {       // only "Hey Jarvis": answer with the wake reply once the mic is open
+        let n = 0; const w = setInterval(() => { n++; if (inChat()) { clearInterval(w); sayWake(); } else if (n > 25) clearInterval(w); }, 200);
+        return;
+      }
       let tries = 0;
       const iv = setInterval(() => {                                 // wait until the microphone is open, then handle the rest of the sentence like a typed message
         tries++;
@@ -252,8 +273,18 @@
   }
   if (wakeBtn) wakeBtn.onclick = () => {
     wantWake = !wantWake; try { localStorage.setItem("jv-wake", wantWake ? "1" : "0"); } catch (e) {}
-    showWake(); if (wantWake) { startWake(); toast("Say \"Hey Jarvis\" while the app is open"); } else stopWake();
+    showWake(); if (wantWake) { startWake(); prefetchWake(); toast("Say \"Hey Jarvis\" while the app is open"); } else stopWake();
   };
+  if (wakeBtn) {
+    const lab = el("div", "wklab", "What Jarvis says after “Hey Jarvis” (one per line, he picks one; leave empty for silence)");
+    const ta = el("textarea"); ta.id = "wakeph"; ta.rows = 4; ta.maxLength = 400; ta.value = phrases().join("\n"); ta.setAttribute("aria-label", "Wake reply phrases");
+    const rs = el("button", "", "Reset to default"); rs.type = "button"; rs.id = "wakers";
+    let tmr = 0;
+    const commit = () => { try { localStorage.setItem("jv-wakephrases", ta.value); } catch (e) {} clearTimeout(tmr); tmr = setTimeout(() => { prefetchWake(); toast("Wake reply saved"); }, 900); };
+    ta.oninput = commit;
+    rs.onclick = () => { try { localStorage.removeItem("jv-wakephrases"); } catch (e) {} ta.value = WAKE_DEFAULT.join("\n"); prefetchWake(); toast("Reset"); };
+    wakeBtn.after(lab, ta, rs);
+  }
   showWake();
   setInterval(() => { if (!wantWake) return; if (inChat() || document.hidden || locked()) { if (rec) stopWake(); } else if (!rec) startWake(); }, 2000);
   document.addEventListener("visibilitychange", () => { if (document.hidden) stopWake(); else if (wantWake) setTimeout(startWake, 600); });
