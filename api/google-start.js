@@ -10,7 +10,7 @@ module.exports = (req, res) => {
     client_id: env("GOOGLE_CLIENT_ID"),
     redirect_uri: `https://${req.headers.host}/api/google-callback`,
     response_type: "code",
-    scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose",
+    scope: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.compose https://www.googleapis.com/auth/calendar.events",
     access_type: "offline",
     prompt: "consent",
     state: t,
