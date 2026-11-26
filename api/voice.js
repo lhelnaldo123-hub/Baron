@@ -15,6 +15,10 @@ const PERSONAS = {
     "You are Tender Sprout AI, a friendly voice tutor for teachers and students in Ghana. Use Ghanaian/British English and support the NaCCA curriculum. " +
     "Never invent official curriculum codes or claim questions are real past exam questions. Explain simply, one step at a time, and offer to quiz the student. ",
 };
+const STYLE_RULES =
+  "\nVoice styles: your voice understands tags in square brackets written inside the words you speak. Use them ONLY when the user asks you to sing, do an impression or a character voice, laugh, whisper, shout or act out a feeling. Examples: [singing] la la la, [laughing], [whisper], [pirate voice], [deep movie trailer voice], [old grandmother voice], [robot voice], [excited], [sigh]. Put the tag right before the words it applies to. Otherwise use no tags. " +
+  "When asked to sing, sing a few short lines (under 450 characters in total): write ORIGINAL lyrics, or use only songs in the public domain such as Happy Birthday or old nursery rhymes. Never write out the lyrics of a copyrighted song; if asked for one, say you cannot sing that exact song and sing an original song in the same mood instead. Start each sung line with [singing] and use 'la la' or repeated words to carry the tune. " +
+  "For animal sounds (dog barking, cat, rooster, cow, lion, wolf, duck, bird, sheep) call make_sound, which plays a real sound, then say one short line.";
 const SPOKEN =
   "Never reply with only a filler sound like 'hm' or 'mm-hm'; always give a real answer or do the task. " +
   "This is a live spoken conversation. Talk like a warm, natural person on a phone call: usually one to three short sentences, contractions, plain words. " +
@@ -54,6 +58,8 @@ const SEND_TOOLS = [
 const APP_TOOLS = [
   { type: "function", function: { name: "show_panel", description: "Open the Jarvis window on the user's phone to one page: home (clock, battery, network), chat (messages), mail, or alerts. Use it when they ask to see their battery, messages, mail or alerts.",
     parameters: { type: "object", properties: { page: { type: "string", enum: ["home", "chat", "mail", "alerts"] } }, required: ["page"] } } },
+  { type: "function", function: { name: "make_sound", description: "Play a real animal sound on the user's phone, for example when they ask you to bark like a dog, meow, roar like a lion or crow like a rooster.",
+    parameters: { type: "object", properties: { sound: { type: "string", enum: ["dog", "cat", "rooster", "cow", "lion", "wolf", "duck", "bird", "sheep"] }, count: { type: "integer", description: "How many times, 1 to 5 (optional)" } }, required: ["sound"] } } },
   { type: "function", function: { name: "clear_alerts", description: "Clear all alerts and problem notices from the user's alerts list. Use it when they ask to clear, delete or remove the alerts.", parameters: { type: "object", properties: {} } } },
   { type: "function", function: { name: "show_pictures", description: "Search the internet for pictures and show them in a pop-up window on the user's screen. Use it when the user asks to see a picture or photo of anything (a lion, the Eiffel Tower, a kente cloth...). Put a short search phrase in query.",
     parameters: { type: "object", properties: { query: { type: "string", description: "What to find pictures of, in English if possible" } }, required: ["query"] } } },
@@ -77,11 +83,11 @@ const ACTION_TOOL = { type: "function", function: { name: "device_action",
     question: { type: "string", description: "Only for describe: what the user wants to know about what the camera sees" } }, required: ["action"] } } };
 const ARM_POSES = ["down", "raise", "wave", "point", "fold", "stretch", "palms", "open", "move", "head", "hips", "salute", "clap", "cheer"];
 const LEG_POSES = ["down", "knee", "front", "side", "back", "tuck", "kick", "march"];
-const ACTIONS = ["kick_ball", "jump", "dance", "march", "bow", "clap", "cheer"];
+const ACTIONS = ["kick_ball", "jump", "dance", "march", "bow", "clap", "cheer", "backflip", "frontflip", "backroll", "frontroll"];
 const HEAD_MOVES = ["nod", "shake", "up", "down", "left", "right", "tilt", "center"];
 const FACES = ["smile", "surprised", "sad", "confused", "neutral"];
 const AVATAR_TOOL = { type: "function", function: { name: "avatar_pose",
-  description: "Move your own 3D body (arms, legs, head, face, whole-body actions). Call it whenever the user asks you to move, pose, gesture, act something out or show an action: raise a leg, hold your head with one hand or two, kick a ball, dance, jump, bow, clap, salute, hands on hips, wave, look somewhere, smile... Any request about your body goes here. " +
+  description: "Move your own 3D body (arms, legs, head, face, whole-body actions). Call it whenever the user asks you to move, pose, gesture, act something out or show an action: raise a leg, hold your head with one hand or two, kick a ball, dance, jump, do a back flip or front flip, do a back roll or front roll, bow, clap, salute, hands on hips, wave, look somewhere, smile... Any request about your body goes here. " +
     "You can set arms, legs, head and face together. For a sequence (first this, then that) call it several times and give each later call a delay in seconds. " +
     "For a move that is not in the lists, use custom: give the direction each limb segment points as [x, y, z] where x = toward your own left (positive) or right (negative), y = up (positive) or down (negative), z = toward the viewer (positive) or backwards (negative). Example: arm straight out to your left = upper [1,0,0], lower [1,0,0]; leg lifted forward = upper [0,0.3,1], lower [0,-1,0.2].",
   parameters: { type: "object", properties: {
@@ -137,6 +143,7 @@ async function runTool(c, actions, pending, tasks) {
     const tr = T.run(c.function.name, a, tasks, actions);
     if (tr) return JSON.stringify(tr);
     if (c.function.name === "show_panel") { actions.push({ action: "panel", page: ["home", "chat", "mail", "alerts"].includes(a.page) ? a.page : "home" }); return JSON.stringify({ ok: true }); }
+    if (c.function.name === "make_sound") { const snd = String(a.sound || ""); if (!/^(dog|cat|rooster|cow|lion|wolf|duck|bird|sheep)$/.test(snd)) return JSON.stringify({ error: "Unknown sound." }); actions.push({ action: "sound", sound: snd, count: Math.max(1, Math.min(5, parseInt(a.count, 10) || 0)) || undefined }); return JSON.stringify({ ok: true, note: "The sound is playing on the phone now. Say one short, playful line." }); }
     if (c.function.name === "clear_alerts") { actions.push({ action: "alerts_clear" }); return JSON.stringify({ ok: true }); }
     if (c.function.name === "show_pictures") { const qy = String(a.query || "").trim().slice(0, 80); if (!qy) return JSON.stringify({ error: "No search words." }); actions.push({ action: "pics", query: qy }); return JSON.stringify({ ok: true, note: "A pop-up with pictures is opening on the screen. Say one short line like 'Here you go.' Do not describe pictures you cannot see." }); }
     if (c.function.name === "look_camera") { actions.push({ action: "look", question: String(a.question || "").slice(0, 300) }); return JSON.stringify({ ok: true, note: "The camera is opening and will take the photo in 3 seconds. Say one short line like 'Sure, hold it up for me.' The answer will show on screen by itself." }); }
@@ -226,7 +233,7 @@ module.exports = async (req, res) => {
     const tasks = T.clean(sentTasks);
     const lvl = Number(device && device.battery);
     const deviceLine = "\nPhone info: " + (Number.isFinite(lvl) ? `battery ${Math.round(lvl)}%${device.charging ? " (charging)" : ""}. ` : "battery unknown. ") + (now ? "Local time: " + String(now).slice(0, 40) + "." : "");
-    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (mode === "teacher" ? "" : NAME_RULES) + APP_RULES + T.TASK_RULES + T.fmt(tasks) + deviceLine + (vision ? VISION_RULES : "") + (avatar ? AVATAR_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
+    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + STYLE_RULES + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (mode === "teacher" ? "" : NAME_RULES) + APP_RULES + T.TASK_RULES + T.fmt(tasks) + deviceLine + (vision ? VISION_RULES : "") + (avatar ? AVATAR_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
     const pending = /^[\w-]{1,64}$/.test(String(pendingDraft || "")) ? String(pendingDraft) : "";
     const toolList = [...T.TASK_TOOLS, ...APP_TOOLS, ...(mail.configured() ? TOOLS : []), ...(mail.configured() && pending ? SEND_TOOLS : []), ...(vision ? [ACTION_TOOL] : []), ...(avatar ? [AVATAR_TOOL, AVATAR_GESTURE] : [])];
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
@@ -278,8 +285,10 @@ module.exports = async (req, res) => {
     const m = raw.lastIndexOf("MEM:");
     if (m >= 0) { mem = raw.slice(m + 4).trim(); raw = raw.slice(0, m).trim(); }
     const i = raw.lastIndexOf("SAY:");
-    const reply = spoken ? raw.replace(/^SAY:\s*/, "").replace(/[*#_`]/g, "") : i > 0 ? raw.slice(0, i).trim() : raw.replace(/^SAY:\s*/, "");
-    const say = spoken ? reply : i >= 0 ? raw.slice(i + 4).trim() : raw.slice(0, 300);
+    const full = spoken ? raw.replace(/^SAY:\s*/, "").replace(/[*#_`]/g, "") : i > 0 ? raw.slice(0, i).trim() : raw.replace(/^SAY:\s*/, "");
+    const noTags = s => s.replace(/\[[^\]\n]{1,50}\]/g, "").replace(/[ \t]{2,}/g, " ").trim();   // style tags like [singing] are heard, not shown
+    const reply = noTags(full) || full;
+    const say = spoken ? full : i >= 0 ? raw.slice(i + 4).trim() : raw.slice(0, 300);
 
     res.json({ user, reply, say, mem, actions });
   } catch (e) {
