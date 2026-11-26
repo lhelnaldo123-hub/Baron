@@ -156,5 +156,16 @@
   }
   // Voice: "what is this?" / "check this for me" makes Jarvis open the camera and snap after 3 seconds.
   window.jvLookActions = list => (list || []).forEach(a => { if (!a) return; if (a.action === "look") open(a.question || "", true); else if (a.action === "pics" && a.query) pics(a.query); });
+  // Plain spoken or typed requests open the camera straight away (no AI needed, so no rate limit):
+  // "what is this", "look at this", "check this for me", "open the camera", "read this", "solve this"...
+  const LOOK = /\b(what('?s| is| are) (this|that|these|those)|what do you see|what can you see|look at (this|that)|check (this|that)( out)?( for me)?|open (the |your |my )?camera|use (the |your |my )?camera|(read|scan|identify|solve|translate) (this|that)|explain (this|that)( question| problem)?)\b/i;
+  window.jvLookCommand = text => {
+    text = String(text || "").trim();
+    if (!text || text.split(/\s+/).length > 7 || !LOOK.test(text)) return false;
+    const generic = /^(hey |ok |okay )?(jarvis[, ]*)?(please )?(can you )?(what('?s| is| are) (this|that|these|those)|what do you see|what can you see|look at (this|that)|check (this|that)( out)?( for me)?|open (the |your |my )?camera|use (the |your |my )?camera)[?.! ]*$/i.test(text);
+    if (window.jvPrime) window.jvPrime();
+    open(generic ? "" : text, true);
+    return true;
+  };
   window.Look = { open, close, pics };
 })();
