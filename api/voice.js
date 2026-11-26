@@ -51,6 +51,10 @@ const ACTION_TOOL = { type: "function", function: { name: "device_action",
     direction: { type: "string", enum: ["in", "out"], description: "Only for zoom_window" },
     all: { type: "boolean", description: "Only for close_window: close every window" },
     question: { type: "string", description: "Only for describe: what the user wants to know about what the camera sees" } }, required: ["action"] } } };
+const AVATAR_TOOL = { type: "function", function: { name: "avatar_gesture",
+  description: "Move your own 3D body. Call it whenever the user asks you to move, pose, gesture, turn, look somewhere or show an expression (wave, raise a hand, point, fold arms, nod, shake head, look up/down/left/right, smile, look surprised, turn around, face me, spin).",
+  parameters: { type: "object", properties: { command: { type: "string", description: "The movement in plain English, e.g. 'wave', 'raise your left hand', 'put your arms down', 'turn around', 'nod', 'look to the left', 'smile', 'fold your arms'" } }, required: ["command"] } } };
+const AVATAR_RULES = "\nYou have a 3D body the user can see. When they ask you to move or show an expression, call avatar_gesture to really do it, then answer in a few words. While explaining things you may also gesture naturally on your own; do not mention that you are using a tool.";
 const VISION_RULES =
   "\nThe user is looking at your holographic vision screen on their phone, with a live camera. When they ask you to do something on that screen (open a panel or floating window, show pictures, scan, weather, timer, flip the camera, lock, close, light or dark mode, tell them what the camera sees), call device_action to really do it, then confirm in a few words. Do not just say you will. For anything else, just talk.";
 const MAIL_RULES =
@@ -63,6 +67,7 @@ async function runTool(c, actions) {
       actions.push({ action: String(a.action || ""), panel: a.panel, window: a.window, query: String(a.query || "").slice(0, 60), direction: a.direction, all: !!a.all, on: a.on, label: String(a.label || "").slice(0, 80), seconds: Number(a.seconds) || 0, question: String(a.question || "").slice(0, 300) });
       return JSON.stringify({ ok: true });
     }
+    if (c.function.name === "avatar_gesture") { actions.push({ action: "avatar", command: String(a.command || "").slice(0, 120) }); return JSON.stringify({ ok: true }); }
     if (c.function.name === "check_inbox") return JSON.stringify({ emails: await mail.inbox(5) });
     if (c.function.name === "draft_reply") {
       const d = await mail.draftReply(String(a.id || ""), String(a.note || ""));
@@ -77,7 +82,7 @@ module.exports = async (req, res) => {
   if (req.method !== "POST") return res.status(405).end();
   if (!auth.check(req)) return res.status(401).json({ error: "Locked" });
   try {
-    const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis", spoken = false, sttOnly = false, ack = "", ui = "" } = req.body;
+    const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis", spoken = false, sttOnly = false, ack = "", ui = "", avatar = false } = req.body;
     const vision = ui === "vision";
     const actions = [];
     const model = spoken ? VOICE_MODEL : MODEL;
@@ -103,8 +108,8 @@ module.exports = async (req, res) => {
     if (sttOnly) return res.json({ user }); // the app only wanted the words, it answers in a second step
 
     // 2. Thinking
-    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (vision ? VISION_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
-    const toolList = [...(mail.configured() ? TOOLS : []), ...(vision ? [ACTION_TOOL] : [])];
+    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (vision ? VISION_RULES : "") + (avatar ? AVATAR_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
+    const toolList = [...(mail.configured() ? TOOLS : []), ...(vision ? [ACTION_TOOL] : []), ...(avatar ? [AVATAR_TOOL] : [])];
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
     const callChat = async (msgs, withTools) => {
       const r = await fetch(`${GROQ}/chat/completions`, {
