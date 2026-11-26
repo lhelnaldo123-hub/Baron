@@ -761,8 +761,9 @@ async function answer(my, text, ackText, typed) {
   bubble("u", text, wait);
   try {
     const spoken = document.body.classList.contains("vm") || !!visionUi();     // voice or vision screen: short spoken answer, faster
-    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText, ui: visionUi(), avatar: !!(window.Avatar && window.Avatar.ready) });
+    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText, ui: visionUi(), avatar: !!(window.Avatar && window.Avatar.ready), pendingDraft: window.jvPending ? window.jvPending() : "", tasks: window.jvTasks ? window.jvTasks() : [], device: window.jvDevice ? window.jvDevice() : {}, now: new Date().toLocaleString() });
     fillerArmed = false;
+    if (d.actions && d.actions.length && window.jvMailActions) window.jvMailActions(d.actions);
     if (d.actions && d.actions.length && window.jvActions) window.jvActions(d.actions);
     if (!d.reply) { wait.remove(); if (my === turn && on && !paused) listen(); return; }
     bubble("a", d.reply, wait); wait.remove();
@@ -1095,7 +1096,22 @@ const Pop = (() => {
       items = [{ id, kind: "alert", title: a.title, sub: a.text, text: a.text, actions: a.actions }, ...items.filter(i => i.id !== id)]; draw();
     },
     clearAlert(id) { items = items.filter(i => i.id !== "a" + id); draw(); },
-    show
+    show,
+    battery: () => bat,
+    // read one email in a floating window (used when you ask Jarvis to open a message)
+    read(title, text) {
+      if (zoom) close();
+      show(2);
+      setTimeout(() => {
+        const t = el("div"); t.style.cssText = "position:fixed;left:50%;top:40%;width:1px;height:1px;pointer-events:none";
+        document.body.append(t);
+        open({ id: "r" + Date.now(), kind: "mail", title, text }, t);
+        setTimeout(() => { const iv = setInterval(() => { if (!zoom) { t.remove(); clearInterval(iv); } }, 500); }, 500);
+      }, 450);
+    },
+    // close the open email; if none is open, tuck the whole window away
+    shut() { if (zoom) close(); else setSize("m"); },
+    openMail() { if (zoom) close(); show(2); }
   };
   let sz = "n"; try { sz = localStorage.getItem("jv-hub") || "n"; } catch (e) {}
   setSize(SIZES.includes(sz) ? sz : "n"); draw();
@@ -1103,6 +1119,31 @@ const Pop = (() => {
 })();
 window.jvAlert = (title, text, actions) => Pop.alert({ title, text, actions });
 window.jvHub = Pop;
+// Voice mail control: a written draft waits here until you say send. Saying "wait" just leaves it.
+let pendingDraft = ""; try { pendingDraft = localStorage.getItem("jv-pending") || ""; } catch (e) {}
+const setPending = id => { pendingDraft = id || ""; try { id ? localStorage.setItem("jv-pending", id) : localStorage.removeItem("jv-pending"); } catch (e) {} };
+window.jvPending = () => pendingDraft;
+window.jvMailActions = list => (list || []).forEach(a => {
+  if (!a) return;
+  if (a.action === "draft_saved") { setPending(a.id); Pop.openMail(); Pop.alert({ id: "draft", title: "Draft ready", text: "To " + a.to + "\n" + a.subject + "\nSay \"send it\" or \"wait\"." }); }
+  else if (a.action === "draft_sent") { setPending(""); Pop.clearAlert("draft"); Pop.alert({ id: "sent" + Date.now(), title: "Email sent", text: "Your email was sent." }); }
+  else if (a.action === "draft_clear") { setPending(""); Pop.clearAlert("draft"); }
+  else if (a.action === "mail_read") Pop.read((a.from || "").replace(/<.*>/, "").trim() || "Email", (a.subject ? a.subject + "\n\n" : "") + (a.text || ""));
+  else if (a.action === "mail_window") a.do === "close" ? Pop.shut() : Pop.openMail();
+  else if (a.action === "panel") Pop.show({ home: 0, chat: 1, mail: 2, alerts: 3 }[a.page] || 0);
+  else if (a.action === "task_add" && a.task) saveTasks([...tasks, a.task]);
+  else if (a.action === "task_done") saveTasks(tasks.map(t => t.id === a.id ? { ...t, done: true } : t));
+  else if (a.action === "task_remove") saveTasks(tasks.filter(t => t.id !== a.id));
+  else if (a.action === "heart") {
+    const go = () => window.Body && Body.startPulse();
+    if (window.Body) go(); else { const sc = document.createElement("script"); sc.src = "/body.js"; sc.onload = go; document.head.append(sc); }
+  }
+});
+// Plans Jarvis wrote down. Kept on this phone.
+let tasks = []; try { tasks = JSON.parse(localStorage.getItem("jv-tasks") || "[]"); } catch (e) {}
+const saveTasks = t => { tasks = t.slice(-60); try { localStorage.setItem("jv-tasks", JSON.stringify(tasks)); } catch (e) {} };
+window.jvTasks = () => tasks;
+window.jvDevice = () => { const b = Pop.battery(); return b ? { battery: Math.round(b.level * 100), charging: !!b.charging } : {}; };
 Pop.setMail([]);
 
 async function refreshMail(manual) {
