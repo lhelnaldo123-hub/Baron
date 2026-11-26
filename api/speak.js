@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
         "Content-Type": "application/json",
         model: process.env.FISH_MODEL || "s2.1-pro-free",
       },
-      body: JSON.stringify({ text: String(text).slice(0, 600), format: "mp3", ...(id && { reference_id: id }) }),
+      body: JSON.stringify({ text: String(text).slice(0, 900), format: "mp3", ...(id && { reference_id: id }) }),
     });
     if (!tts.ok) throw new Error("Voice failed: " + (await tts.text()));
     const mp3 = Buffer.from(await tts.arrayBuffer());
