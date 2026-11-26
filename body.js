@@ -135,7 +135,7 @@
   }
   const hint = t => { hintEl.textContent = t; };
   const send = text => { close(); if (window.jvSend) window.jvSend(text); };
-  const say = t => { if (window.jvSay) window.jvSay(t); };
+  const say = t => { if (window.jvSpeak) window.jvSpeak(t); else if (window.jvSay) window.jvSay(t); };
 
   function open() {
     build(); root.hidden = false; run++; resize();
@@ -325,5 +325,5 @@
     if (now - last > 33) { last = now; draw(now); }
   }
 
-  window.Body = { open, close, _dsp: { estimate, resample, clean } };
+  window.Body = { open, close, startPulse: () => { open(); return startPulse(); }, _dsp: { estimate, resample, clean } };
 })();
