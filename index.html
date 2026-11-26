@@ -1114,6 +1114,7 @@ const Pop = (() => {
       items = [{ id, kind: "alert", title: a.title, sub: a.text, text: a.text, actions: a.actions }, ...items.filter(i => i.id !== id)]; draw();
     },
     clearAlert(id) { items = items.filter(i => i.id !== "a" + id); draw(); },
+    clearAlerts() { if (zoom) close(); items.filter(i => i.kind === "alert").forEach(i => gone.add(i.id)); items = items.filter(i => i.kind !== "alert"); draw(); },
     show,
     battery: () => bat,
     // read one email in a floating window (used when you ask Jarvis to open a message)
@@ -1151,6 +1152,7 @@ window.jvMailActions = list => (list || []).forEach(a => {
   else if (a.action === "draft_clear") { setPending(""); Pop.clearAlert("draft"); }
   else if (a.action === "mail_read") Pop.read((a.from || "").replace(/<.*>/, "").trim() || "Email", (a.subject ? a.subject + "\n\n" : "") + (a.text || ""));
   else if (a.action === "mail_window") a.do === "close" ? Pop.shut() : Pop.openMail();
+  else if (a.action === "alerts_clear") Pop.clearAlerts();
   else if (a.action === "panel") { Pop.popOpen(); Pop.show({ home: 0, chat: 1, mail: 2, alerts: 3 }[a.page] || 0); }
   else if (a.action === "task_add" && a.task) saveTasks([...tasks, a.task]);
   else if (a.action === "task_done") saveTasks(tasks.map(t => t.id === a.id ? { ...t, done: true } : t));
