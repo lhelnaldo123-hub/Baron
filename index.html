@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jarvis</title>
 <link rel="manifest" href="/manifest.json">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
 <meta name="theme-color" content="#07080d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -323,6 +324,8 @@
   </div>
 
 <script src="/skin.js"></script>
+<script src="/avatar-cmd.js"></script>
+<script src="/avatar.js"></script>
 <script>
 const $ = s => document.querySelector(s);
 const player = $("#a"), chat = $("#chat");
@@ -740,7 +743,7 @@ async function answer(my, text, ackText, typed) {
   bubble("u", text, wait);
   try {
     const spoken = document.body.classList.contains("vm") || !!visionUi();     // voice or vision screen: short spoken answer, faster
-    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText, ui: visionUi() });
+    const d = await post("/api/voice", { text, history, memory, lang, langName: langName(), spoken, ack: ackText, ui: visionUi(), avatar: !!(window.Avatar && window.Avatar.ready) });
     fillerArmed = false;
     if (d.actions && d.actions.length && window.jvActions) window.jvActions(d.actions);
     if (!d.reply) { wait.remove(); if (my === turn && on && !paused) listen(); return; }
@@ -774,6 +777,7 @@ $("#tf").onsubmit = e => {
   e.preventDefault();
   const t = $("#ti").value.trim(); if (!t) return;
   $("#ti").value = "";
+  if (window.jvCommand && window.jvCommand(t)) { bubble("u", t); return; }   // short body command: the avatar just does it
   dropHeld(); const my = ++turn;
   if (on && !paused) { cancelClips(); stopRec(); set("think", "Thinking…"); armFiller(3000); }
   answer(my, t, "");
