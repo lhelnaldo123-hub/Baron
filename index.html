@@ -301,6 +301,10 @@
       <label>Voice volume: <span id="volv"></span></label>
       <input type="range" id="vvol" min="50" max="500" step="10" aria-label="Voice volume">
       <div class="seg"><button id="vtest">Test voice</button><button id="vdel">Remove</button></div>
+      <label>Voice options</label>
+      <button id="loudb" type="button"></button>
+      <button id="pttb" type="button"></button>
+      <p class="help">Louder voice: phones turn all sound down while the microphone is open, so the mic is closed while Jarvis talks. Hold to talk: Jarvis only listens while you hold the orb, so room noise and other people are ignored.</p>
       <label>Add a voice</label>
       <input id="vname" placeholder="Name (for example Sarah)" autocomplete="off">
       <input id="vid" placeholder="Paste Fish voice link or ID" autocomplete="off">
@@ -338,6 +342,20 @@ const [mime, ext] = TYPES.find(t => window.MediaRecorder && MediaRecorder.isType
 
 let state = "idle", on = false, paused = false, ctx, micAn, outAn, stream, rec, chunks = [];
 let speechStart = 0, lastVoice = 0, floorL = 0.03, loudSince = 0, spk = 0, intSince = 0;
+let micSrc = null, hpF = null, lpF = null, listenGen = 0, recReady = false, pttHeld = false, pttHandled = false;
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+const loudMode = () => lsGet("jv-loud", "1") !== "0";   // louder voice: the phone lowers all sound while the mic is open, so the mic is closed while Jarvis talks
+const pttMode = () => lsGet("jv-ptt", "0") === "1";     // hold to talk: only listens while the orb is held down
+const micLive = () => !!stream && stream.getTracks().some(t => t.readyState === "live");
+async function openMic() {
+  if (micLive()) return;
+  stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, voiceIsolation: true } });
+  micSrc = ctx.createMediaStreamSource(stream); micSrc.connect(hpF);
+}
+function closeMic() {
+  try { micSrc && micSrc.disconnect(); } catch (e) {}
+  micSrc = null; if (stream) stream.getTracks().forEach(t => t.stop()); stream = null;
+}
 /* Focus mode: only the voice close to the phone counts. 0 = off, 1 = normal, 2 = strong (noisy room).
    It learns the room noise, ignores quieter far-away voices, and ends your turn when YOUR level drops (not when the room does). */
 const FOCUS = [{ k: 0, min: 0, rel: 0 }, { k: 2.5, min: 150, rel: .5 }, { k: 3.5, min: 220, rel: .65 }];
@@ -422,12 +440,11 @@ async function begin() {
     initAudio();
     await ctx.resume();
     player.src = SILENCE; player.play().catch(() => {}); // unlocks audio on iPhone
-    stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, channelCount: 1, voiceIsolation: true } });
-    micAn = ctx.createAnalyser(); micAn.fftSize = 1024;
-    const src = ctx.createMediaStreamSource(stream);        // the detector only listens to the human voice range (no rumble, hiss or music highs)
-    const hp = ctx.createBiquadFilter(); hp.type = "highpass"; hp.frequency.value = 160;
-    const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 3400;
-    src.connect(hp); hp.connect(lp); lp.connect(micAn);
+    micAn = ctx.createAnalyser(); micAn.fftSize = 1024;     // the detector only listens to the human voice range (no rumble, hiss or music highs)
+    hpF = ctx.createBiquadFilter(); hpF.type = "highpass"; hpF.frequency.value = 160;
+    lpF = ctx.createBiquadFilter(); lpF.type = "lowpass"; lpF.frequency.value = 3400;
+    hpF.connect(lpF); lpF.connect(micAn);
+    await openMic();
     on = true; paused = false; lastT = performance.now(); ensureFx(); listen(); tick();
   } catch (e) {
     set("idle", "Microphone blocked. Allow mic access and tap again.");
@@ -544,7 +561,7 @@ function cancelPending() { turn++; fillerArmed = false; cancelClips(); }
 
 function end() {
   on = false; paused = false; cancelPending(); dropHeld(); stopRec();
-  stream && stream.getTracks().forEach(t => t.stop());
+  closeMic(); recReady = false; pttHeld = false;
   player.pause(); document.body.style.setProperty("--l", 0); barsTo(0, 0);
   $("#pause span").textContent = "Pause";
   set("idle", "Tap the orb to start talking");
@@ -553,7 +570,7 @@ function end() {
 function pause() {
   if (!on) return;
   if (!paused) {
-    paused = true; fillerArmed = false; cancelClips(); stopRec(); dropHeld(); barsTo(0, 0);
+    paused = true; fillerArmed = false; cancelClips(); stopRec(); closeMic(); recReady = false; dropHeld(); barsTo(0, 0);
     document.body.style.setProperty("--l", 0);
     $("#pause span").textContent = "Resume"; set("idle", "Paused");
   } else {
@@ -565,17 +582,22 @@ function newRec() {                         // fresh recording, so reactions we 
   stopRec(); chunks = []; speechStart = 0;
   rec = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
-  rec.start();
+  rec.start(); recReady = true;
 }
 function listen() {
-  newRec(); fillerArmed = false; clearTimeout(bcT); listenSince = performance.now(); nudged = false;
-  set("listen", "Listening…");
+  const g = ++listenGen;
+  stopRec(); recReady = false; chunks = []; speechStart = 0; loudSince = 0; pttHeld = false;
+  fillerArmed = false; clearTimeout(bcT); listenSince = performance.now(); nudged = false;
+  set("listen", pttMode() ? "Hold the orb and talk" : "Listening…");
+  const go = () => { if (g === listenGen && on && !paused) newRec(); };
+  if (micLive()) go(); else openMic().then(go).catch(() => set("idle", "Microphone blocked. Allow mic access and tap again."));   // the mic is closed while Jarvis talks, so open it again
 }
 
 function finish() {
   const spoke = lastVoice - speechStart;
   rec.onstop = () => {
     if (spoke < 400) return listen();
+    if (loudMode()) closeMic();                    // mic off while Jarvis thinks and speaks: full normal volume
     const my = ++turn; early = false;
     if (spoke > 1500) { const ea = pickFrom("early"); if (ea) { early = true; playClip(ea.audio); } }   // react at once, transcribing takes a moment
     armFiller(3500);
@@ -594,7 +616,9 @@ function tick() {
   barsTo(shown, now);
 
   if (!paused) {
-    if (state === "listen") {
+    if (state === "listen" && pttMode()) {          // hold to talk: no listening on its own, only while the orb is held
+      if (pttHeld) { lastVoice = now; if (now - speechStart > 25000) pttUp(); }
+    } else if (state === "listen") {
       const F = FOCUS[focusMode], base = Math.max(fxPlaying ? .35 : .12, floorL * F.k);
       const thr = speechStart ? Math.max(base, spk * F.rel) : base;   // once you talk, the bar follows YOUR loudness, so quieter room voices do not keep the turn open
       if (!speechStart) floorL = Math.min(.5, floorL + (mic - floorL) * (mic > floorL ? .006 : .05));   // learn the room noise, even a constant hum that is always above the bar
@@ -790,7 +814,20 @@ async function answer(my, text, ackText, typed) {
   }
 }
 
+const pttUp = () => {
+  if (!pttHeld) return; pttHeld = false;
+  setTimeout(() => { pttHandled = false; }, 500);
+  if (speechStart) { lastVoice = performance.now(); finish(); }
+};
+$("#orb").addEventListener("pointerdown", () => {
+  if (!pttMode() || !on || paused || state !== "listen" || !recReady) return;
+  pttHeld = true; pttHandled = true; speechStart = lastVoice = performance.now(); spk = 1;
+  clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips();
+  set("listen", "Listening… let go to send");
+});
+["pointerup", "pointercancel", "pointerleave"].forEach(ev => $("#orb").addEventListener(ev, pttUp));
 $("#orb").onclick = () => {
+  if (pttHandled) return;                           // that tap was a hold to talk
   if (!on) begin();
   else if (paused) pause();
   else if (state === "speak" || state === "think") { cancelPending(); listen(); }
@@ -890,6 +927,10 @@ $("#vdel").onclick = () => {
   if (!voice) return;
   voices = voices.filter(v => v.id !== voice); save("jv-voices", voices); pick(""); drawVoices();
 };
+const optSet = () => { $("#loudb").textContent = "Louder voice: " + (loudMode() ? "On" : "Off"); $("#pttb").textContent = "Hold to talk: " + (pttMode() ? "On" : "Off"); };
+$("#loudb").onclick = () => { try { localStorage.setItem("jv-loud", loudMode() ? "0" : "1"); } catch (e) {} optSet(); };
+$("#pttb").onclick = () => { try { localStorage.setItem("jv-ptt", pttMode() ? "0" : "1"); } catch (e) {} optSet(); if (on && !paused && state === "listen") listen(); };
+optSet();
 $("#vvol").value = vol; $("#volv").textContent = vol + "%";
 $("#vvol").oninput = e => { vol = parseInt(e.target.value, 10) || 100; $("#volv").textContent = vol + "%"; try { localStorage.setItem("jv-vol", vol); } catch (x) {} applyVol(); };
 $("#vtest").onclick = async () => {
