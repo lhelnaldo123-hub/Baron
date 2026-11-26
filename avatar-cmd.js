@@ -58,8 +58,17 @@
       else if (has(/\b(tuck|bend|bent)\b/)) lp = "tuck";
       if (lp) { out.push({ k: "leg", pose: lp, side: bothW || has(/\b(legs|feet)\b/) ? "B" : lr || "R" }); handled = true; }
     }
+    if (!handled && has(/\bstomp\w*|\bstamp\w*/)) { out.push({ k: "leg", pose: "stomp", side: "B" }); handled = true; }
+    if (!handled && legWord && !armWord && has(/\b(apart|wide|spread|astride)\b/)) { out.push({ k: "leg", pose: "wide", side: "B" }); handled = true; }
     if (!handled) {
-      if (has(/\b(danc\w*|boogie|groove)\b/)) { out.push({ k: "act", a: "dance" }); handled = true; }
+      if (has(/\b(jumping jacks?|star jumps?|do jacks)\b/)) { out.push({ k: "act", a: "jumping_jacks" }); handled = true; }
+      else if (has(/\b(robot\w*)\b/)) { out.push({ k: "act", a: "robot_dance" }); handled = true; }
+      else if (has(/\b(box|boxing|shadow ?box\w*|punch\w*|throw punches|fight)\b/)) { out.push({ k: "act", a: "boxing" }); handled = true; }
+      else if (has(/\b(squat\w*|crouch\w*|duck down|get low)\b/)) { out.push({ k: "act", a: "squat" }); handled = true; }
+      else if (has(/\bshrug\w*/)) { out.push({ k: "act", a: "shrug" }); handled = true; }
+      else if (has(/\b(flex\w*|muscles?|biceps?)\b/) && !has(/\bflexib\w*/)) { out.push({ k: "act", a: "flex" }); handled = true; }
+      else if (has(/\b(run|running|sprint\w*|jog\w*)\b/)) { out.push({ k: "act", a: "run" }); handled = true; }
+      else if (has(/\b(danc\w*|boogie|groove)\b/)) { out.push({ k: "act", a: "dance" }); handled = true; }
       else if (has(/\b(jump\w*|hop\w*|leap\w*)\b/)) { out.push({ k: "act", a: "jump" }); handled = true; }
       else if (has(/\bmarch\w*\b|\b(walk|run|jog)\w*\b.*\b(place|spot)\b|^(walk|run|jog|stomp)( around)?$/)) { out.push({ k: "act", a: "march" }); handled = true; }
       else if (has(/\b(bow|bowing)\b/)) { out.push({ k: "act", a: "bow" }); handled = true; }
@@ -82,6 +91,12 @@
     const arm = armWord;
     let pose = null;
     if (handled || holdHead) { /* already done above */ }
+    else if (has(/\b(on (your )?(heart|chest)|hand to (your )?(heart|chest)|pledge)\b/)) pose = "heart";
+    else if (has(/\b(thinking pose|pose (like )?a thinker|(hand|finger) on (your )?chin|(rub|stroke|scratch|hold) (your )?chin)\b/)) pose = "think";
+    else if (has(/\b(stop sign|halt|palm (out|forward)|hold up (a )?(stop|palm))\b/)) pose = "stop";
+    else if (has(/\b(airplane|aeroplane|plane|wings?|t pose|arms (out )?(wide|to the sides?))\b/)) pose = "wings";
+    else if (has(/\b(come here|come closer|come to me|beckon\w*)\b/)) pose = "beckon";
+    else if (has(/\b(hug|embrace|cuddle)\b/)) pose = "hug";
     else if (has(/\bhips?\b/)) pose = "hips";
     else if (has(/\bsalut\w*\b/)) pose = "salute";
     else if (has(/\b(clap\w*|applaud\w*)\b/)) pose = "clap";
@@ -100,7 +115,7 @@
     else if (arm && has(/\bup\b/) && !has(/\b(look|head|eyes)\b/)) pose = "raise";
     else if (has(/\b(move|swing|wiggle|flex|exercise)\b.*\b(arm|arms|hand|hands)\b/)) pose = "move";
     if (pose) {
-      const forced = { fold: "B", stretch: "B", palms: "B", open: "B", clap: "B", cheer: "B" }[pose];
+      const forced = { fold: "B", stretch: "B", palms: "B", open: "B", clap: "B", cheer: "B", wings: "B", hug: "B", beckon: side || "R" }[pose];
       out.push({ k: "arm", pose, side: forced || side || (pose === "down" || pose === "hips" ? "B" : "R") });
       if (pose === "down") out.push({ k: "leg", pose: "down", side: "B" });
     }
@@ -112,7 +127,7 @@
     if (!intents.length) return false;
     const t = norm(text);
     if (t.split(" ").length > 9) return false;
-    if (/^(what|why|how|who|when|where|which|tell|explain|describe|is|are|do|does|did)\b/.test(t)) return false;
+    if (/^(what|why|how|who|when|where|which|tell|explain|describe|is|are)\b/.test(t) || /^(do|does|did) (you|i|we|they|he|she|it)\b/.test(t)) return false;
     if (/^(i|im|we|you|he|she|they|my|it|its|that|this|there)\b/.test(t)) return false;
     return true;
   }
