@@ -30,7 +30,7 @@ module.exports = async (req, res) => {
     if (!d.refresh_token) {
       return page(res, 400, "<h3>No token received</h3><p>Open myaccount.google.com/permissions, remove this app, then try Connect Gmail again.</p>");
     }
-    page(res, 200, `<h3>Gmail connected</h3>
+    page(res, 200, `<h3>Google connected (Gmail and Calendar)</h3>
       <p>Last step. Copy this value, then in Vercel open your project, Settings, Environment Variables, and add one named <b>GOOGLE_REFRESH_TOKEN</b>. Redeploy after.</p>
       <textarea readonly rows="6" style="width:100%;background:#11152b;color:#e8eaf2;border:1px solid #2a315a;border-radius:10px;padding:.6rem" onfocus="this.select()">${esc(d.refresh_token)}</textarea>
       <p style="color:#98a0c0">Keep it private. Anyone with it can read your mail. Close this page when done.</p>`);
