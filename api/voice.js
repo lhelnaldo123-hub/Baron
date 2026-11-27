@@ -117,6 +117,9 @@ const APP_RULES =
   "\nYou can open pages in the user's Jarvis app (home, chat, mail, alerts) with show_panel, and check their heart rate with heart_rate. " +
   "When the user wants you to look at something, read something, or asks 'what is this', 'check this for me' or 'solve this', call look_camera to open the phone camera, then say one short line like 'Sure, hold it up for me.' Never say you cannot see; the camera takes care of it. " +
   "When the user asks to see a picture or photo of something, call show_pictures. To show messages or email, use show_panel or the mail tools; those open pop-up windows on screen.";
+const TENDER_RULES =
+  "\nWhen the user wants you to look at something (homework, a page in a book, a board, an object), call look_camera to open the phone camera, then say one short line like 'Sure, hold it up for me.' Never say you cannot see; the camera takes care of it. " +
+  "You cannot check heart rate, open other apps, play sounds or send email here; if asked, say so kindly and offer what you can do (teach, explain, quiz, plans, live facts, camera).";
 const VISION_RULES =
   "\nThe user is looking at your holographic vision screen on their phone, with a live camera. When they ask you to do something on that screen (open a panel or floating window, show pictures, scan, weather, timer, flip the camera, lock, close, light or dark mode, tell them what the camera sees), call device_action to really do it, then confirm in a few words. Do not just say you will. For anything else, just talk.";
 const MAIL_RULES =
@@ -200,10 +203,12 @@ async function runTool(c, actions, pending, tasks, X) {
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
-  if (!auth.check(req)) return res.status(401).json({ error: "Locked" });
+  if (!auth.check(req) && !auth.tenderOpen(req)) return res.status(401).json({ error: "Locked" });
+  if (!auth.check(req)) req.body = { ...(req.body || {}), mode: "teacher" };   // no passcode = Tender only
   try {
     const { audio, ext = "webm", text, history = [], memory = [], lang = "", langName = "", mode = "jarvis", spoken = false, sttOnly = false, ack = "", ui = "", avatar = false, pendingDraft = "", tasks: sentTasks = [], device = {}, now = "", extra = {} } = req.body;
     const vision = ui === "vision";
+    const tender = mode === "teacher";   // the Tender Sprout AI app: it only gets tools its screen can really carry out
     const actions = [];
     const model = spoken ? VOICE_MODEL : MODEL;
     const code = /^[a-z]{2,3}$/.test(lang) ? lang : "";
@@ -245,13 +250,15 @@ module.exports = async (req, res) => {
     const useLive = L.RE.test(seen), useCal = C.RE.test(seen), useNotes = N.RE.test(seen) || !!(X.quiz && /\b(notes?|homework|saved)\b/i.test(X.quiz.topic));
     const MF = M.detect(seen, !!X.quiz);
     const stepWanted = M.STEP_RE.test(user);
-    const extraTools = [...(useLive ? L.tools() : []), ...(useCal ? C.tools() : []), ...(useNotes ? N.TOOLS : []), ...M.tools(MF, !!X.quiz)];
-    const extraRules = (useLive ? L.RULES : "") + (useCal ? C.rules(X) : "") + (useNotes ? N.RULES : "") + M.rules(MF, X);
+    const wantSearch = tender && !!process.env.TAVILY_API_KEY && /\b(latest|current(ly)?|today|tonight|right now|recent(ly)?|who is|who was|who won|search|look up|google|find out|update|updates|new release|2025|2026)\b/i.test(seen);
+    const liveOn = useLive || wantSearch;
+    const extraTools = tender ? (liveOn ? L.tools() : []) : [...(useLive ? L.tools() : []), ...(useCal ? C.tools() : []), ...(useNotes ? N.TOOLS : []), ...M.tools(MF, !!X.quiz)];
+    const extraRules = tender ? (liveOn ? L.RULES : "") : (useLive ? L.RULES : "") + (useCal ? C.rules(X) : "") + (useNotes ? N.RULES : "") + M.rules(MF, X);
     const lvl = Number(device && device.battery);
     const deviceLine = "\nPhone info: " + (Number.isFinite(lvl) ? `battery ${Math.round(lvl)}%${device.charging ? " (charging)" : ""}. ` : "battery unknown. ") + (now ? "Local time: " + String(now).slice(0, 40) + "." : "");
-    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + STYLE_RULES + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + HEALTH + (mail.configured() ? MAIL_RULES : "") + (mode === "teacher" ? "" : NAME_RULES) + APP_RULES + T.TASK_RULES + T.fmt(tasks) + deviceLine + extraRules + (vision ? VISION_RULES : "") + (avatar ? AVATAR_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
+    const system = (PERSONAS[mode] || PERSONAS.jarvis) + (spoken ? SPOKEN : FORMAT) + STYLE_RULES + (code && name ? `\nThe user speaks ${name}. Always reply in ${name}.` : "") + (memory.length ? "\nThings you remember about the user:\n- " + memory.slice(-30).join("\n- ") : "") + (tender ? "" : HEALTH) + (mail.configured() && !tender ? MAIL_RULES : "") + (tender ? "" : NAME_RULES) + (tender ? TENDER_RULES : APP_RULES) + T.TASK_RULES + T.fmt(tasks) + deviceLine + extraRules + (vision ? VISION_RULES : "") + (avatar ? AVATAR_RULES : "") + (spoken && cleanAck ? `\nYou just said "${cleanAck}" out loud as a quick reaction. Do not start with another reaction or filler word; go straight into your answer.` : "");
     const pending = /^[\w-]{1,64}$/.test(String(pendingDraft || "")) ? String(pendingDraft) : "";
-    const toolList = [...T.TASK_TOOLS, ...APP_TOOLS, ...extraTools, ...(mail.configured() ? TOOLS : []), ...(mail.configured() && pending ? SEND_TOOLS : []), ...(vision ? [ACTION_TOOL] : []), ...(avatar ? [AVATAR_TOOL, AVATAR_GESTURE] : [])];
+    const toolList = [...T.TASK_TOOLS, ...APP_TOOLS.filter(t => !tender || t.function.name === "look_camera"), ...extraTools, ...(mail.configured() && !tender ? TOOLS : []), ...(mail.configured() && !tender && pending ? SEND_TOOLS : []), ...(vision ? [ACTION_TOOL] : []), ...(avatar ? [AVATAR_TOOL, AVATAR_GESTURE] : [])];
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
     // Free Groq plans cap tokens per day and per minute per model. On a limit: wait a few seconds and retry, then try another Groq model (each has its own limit),
     // then the backups (Gemini, then a second provider) if their keys are set in Vercel. See _llm.js.
