@@ -48,6 +48,10 @@
     x.onclick = e => { e.stopPropagation(); onDel(); };
     r.append(x); return r;
   }
+  // what Jarvis has learned about you from talking (name, likes, family, plans). Shared with the voice code, so deleting here really forgets it.
+  const mem = () => { try { if (typeof memory !== "undefined" && Array.isArray(memory)) return memory; } catch (e) {} return load("jv-memory"); };
+  const memSave = list => { try { if (typeof memory !== "undefined" && Array.isArray(memory)) { memory.length = 0; list.forEach(x => memory.push(x)); } } catch (e) {} save("jv-memory", list); };
+  let memShown = -1;
   function draw() {
     if (!page) return;
     const add = el("div", "add"), inp = el("input"); inp.placeholder = "Add a note…"; inp.autocomplete = "off";
@@ -71,8 +75,19 @@
     const hs = notes.filter(n => n.kind === "homework").slice().reverse();
     if (!hs.length) kids.push(el("p", "help", "None. Use the camera on a question, then tap Save."));
     hs.forEach(n => kids.push(row("HOMEWORK", n.q || "Question", n.text, () => { notes = notes.filter(x => x.id !== n.id); keep(); draw(); })));
+    kids.push(el("h5", "", "WHAT JARVIS REMEMBERS ABOUT YOU"));
+    const ms = mem().slice();
+    memShown = ms.length;
+    if (!ms.length) kids.push(el("p", "help", "Nothing yet. When you tell Jarvis something about yourself, he may remember it here. You can delete anything."));
+    ms.map((m, i) => ({ m, i })).reverse().forEach(o => kids.push(row("MEMORY", String(o.m), "", () => { const l = mem().slice(); l.splice(o.i, 1); memSave(l); draw(); })));
+    if (ms.length) {
+      const fb = el("button", "wide", "Forget everything Jarvis remembered");
+      fb.onclick = () => { if (confirm("Delete all " + ms.length + " things Jarvis remembers about you? Notes and reminders stay.")) { memSave([]); draw(); } };
+      kids.push(fb);
+    }
     page.replaceChildren(...kids);
   }
+  setInterval(() => { if (!document.hidden && mem().length !== memShown && !(page && page.contains(document.activeElement) && document.activeElement.tagName === "INPUT")) draw(); }, 3000);
 
   // ---- reminders ring ----
   async function phoneNotice(text) {
