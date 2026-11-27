@@ -4,7 +4,7 @@ const auth = require("./_auth");
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
-  if (!auth.check(req)) return res.status(401).json({ error: "Locked" });
+  if (!auth.check(req) && !auth.tenderOpen(req)) return res.status(401).json({ error: "Locked" });
   try {
     const { text = "", voice = "" } = req.body;
     const id = /^[\w-]{8,64}$/.test(voice) ? voice : process.env.FISH_VOICE_ID;
