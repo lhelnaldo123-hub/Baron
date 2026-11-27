@@ -17,6 +17,9 @@
     },
     "api/notify.js": {
       "maxDuration": 45
+    },
+    "api/search.js": {
+      "maxDuration": 20
     }
   },
   "headers": [
