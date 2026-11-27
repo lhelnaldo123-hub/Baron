@@ -18,7 +18,7 @@ const SYSTEM =
 module.exports = async (req, res) => {
   if (cors(req, res)) return;
   if (req.method !== "POST") return res.status(405).end();
-  if (!auth.check(req)) return res.status(401).json({ error: "Locked" });
+  if (!auth.check(req) && !auth.tenderOpen(req)) return res.status(401).json({ error: "Locked" });
   try {
     const { image = "", question = "", langName = "" } = req.body || {};
     const b64 = String(image).replace(/^data:image\/\w+;base64,/, "");
