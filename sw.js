@@ -1,5 +1,5 @@
 // Lets the app install and open instantly. Talking still needs internet.
-const CACHE = "jarvis-v17";
+const CACHE = "jarvis-v18";
 const ASSETS = ["/", "/index.html", "/manifest.json", "/body.js", "/skin.js", "/avatar.js", "/avatar-cmd.js", "/look.js", "/extras.js", "/features.js", "/jarvis.glb", "/jarvis-icon-192.png", "/jarvis-icon-512.png"];
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
