@@ -307,6 +307,12 @@
       <button id="loudb" type="button"></button>
       <button id="pttb" type="button"></button>
       <button id="wakeb" type="button"></button>
+      <label>My voice</label>
+      <button id="vpreg" type="button">Register my voice</button>
+      <button id="vpmode" type="button"></button>
+      <button id="vpstr" type="button"></button>
+      <button id="vpdel" type="button">Remove my voice</button>
+      <p class="help" id="vphelp"></p>
       <p class="help">Louder voice: phones turn all sound down while the microphone is open, so the mic is closed while Jarvis talks. Hold to talk: Jarvis only listens while you hold the orb, so room noise and other people are ignored. Wake word: say "Hey Jarvis" to start talking while the app is open on screen (it needs the microphone allowed).</p>
       <label>Add a voice</label>
       <input id="vname" placeholder="Name (for example Sarah)" autocomplete="off">
@@ -333,6 +339,7 @@
     </form>
   </div>
 
+<script src="/voiceprint.js"></script>
 <script src="/skin.js"></script>
 <script src="/avatar-cmd.js"></script>
 <script src="/avatar.js"></script>
@@ -576,7 +583,7 @@ function pause() {
 }
 
 function newRec() {                         // fresh recording, so reactions we played are never sent as your words
-  stopRec(); chunks = []; speechStart = 0;
+  stopRec(); chunks = []; speechStart = 0; if (window.VoicePrint) VoicePrint.reset();
   rec = new MediaRecorder(stream, mime ? { mimeType: mime } : {});
   rec.ondataavailable = e => e.data.size && chunks.push(e.data);
   rec.start(); recReady = true;
@@ -594,6 +601,7 @@ function finish() {
   const spoke = lastVoice - speechStart;
   rec.onstop = () => {
     if (spoke < 400) return listen();
+    if (VPon() && !VoicePrint.verdict().ok) return listen();   // not the registered voice: ignore it
     if (loudMode()) closeMic();                    // mic off while Jarvis thinks and speaks: full normal volume
     const my = ++turn; early = false;
     armFiller(6500);
@@ -618,7 +626,14 @@ function tick() {
       const F = FOCUS[focusMode], base = Math.max(fxPlaying ? .35 : .12, floorL * F.k);
       const thr = speechStart ? Math.max(base, spk * F.rel) : base;   // once you talk, the bar follows YOUR loudness, so quieter room voices do not keep the turn open
       if (!speechStart) floorL = Math.min(.5, floorL + (mic - floorL) * (mic > floorL ? .006 : .05));   // learn the room noise, even a constant hum that is always above the bar
-      if (mic > thr) {
+      if (enrolling) {                                 // registering your voice: only listen to you, answer nothing
+        if (mic > Math.max(.12, floorL * 2.5)) {
+          const pr = VoicePrint.enrollFeed(micAn, ctx.sampleRate);
+          if (now - enrollT > 400) { enrollT = now; set("listen", "Registering your voice. Keep talking normally: " + Math.round(pr * 100) + "%"); }
+          if (pr >= 1) finishEnroll();
+        }
+      } else if (mic > thr) {
+        if (VPon()) VoicePrint.feed(micAn, ctx.sampleRate);
         if (!speechStart) {
           if (!loudSince) loudSince = now;
           if (now - loudSince >= F.min) { speechStart = loudSince; spk = mic; clearTimeout(holdT); clearTimeout(bcT); if (fxPlaying) cancelClips(); lastVoice = now; }
@@ -1002,6 +1017,36 @@ $("#vdel").onclick = () => {
   if (!voice) return;
   voices = voices.filter(v => v.id !== voice); save("jv-voices", voices); pick(""); drawVoices();
 };
+/* ---- register my voice: Jarvis only answers the voice you registered ---- */
+let enrolling = false, enrollT = 0;
+const VPon = () => !!(window.VoicePrint && VoicePrint.on());
+function drawVp() {
+  const VP = window.VoicePrint; if (!VP) { $("#vphelp").textContent = "Voice registration is not available."; return; }
+  const has = VP.enrolled();
+  $("#vpmode").textContent = "Answer: " + (has && VP.on() ? "only my voice" : "any voice");
+  $("#vpstr").textContent = "How strict: " + ({ loose: "relaxed", normal: "normal", strict: "strict" })[VP.strict()];
+  $("#vpdel").hidden = !has;
+  $("#vphelp").textContent = has ? "Your voice is saved on this phone (numbers about how it sounds, never a recording). If Jarvis ignores you too often choose relaxed, or register again in a quiet room. A very similar voice can still get through." : "Not registered yet. Register once (about 30 seconds in a quiet room) and Jarvis will ignore other people's voices.";
+}
+function finishEnroll() {
+  enrolling = false;
+  const ok = VoicePrint.enrollFinish();
+  set("listen", ok ? "Your voice is registered." : "That was too short or too quiet. Open settings and try again.");
+  drawVp(); $("#vmsg").textContent = $("#st").textContent;
+  setTimeout(() => { if (on && !paused) listen(); }, 1200);
+}
+async function startEnroll() {
+  if (!window.VoicePrint) return;
+  $("#sheet").hidden = true; VoicePrint.enrollStart(); enrolling = true; enrollT = 0;
+  if (!on) await begin();
+  if (!on) { enrolling = false; VoicePrint.enrollCancel(); return; }
+  stopRec(); recReady = false; speechStart = 0; set("listen", "Registering your voice. Talk normally for about 30 seconds: read something aloud or chat. Quiet room please.");
+}
+$("#vpreg").onclick = startEnroll;
+$("#vpmode").onclick = () => { if (!VoicePrint.enrolled()) { $("#vphelp").textContent = "Register your voice first."; return; } VoicePrint.setOn(!VoicePrint.on()); drawVp(); };
+$("#vpstr").onclick = () => { const o = ["loose", "normal", "strict"]; VoicePrint.setStrict(o[(o.indexOf(VoicePrint.strict()) + 1) % 3]); drawVp(); };
+$("#vpdel").onclick = () => { VoicePrint.clear(); drawVp(); };
+drawVp();
 const optSet = () => { $("#loudb").textContent = "Louder voice: " + (loudMode() ? "On (tap to interrupt)" : "Off (talk to interrupt)"); $("#pttb").textContent = "Hold to talk: " + (pttMode() ? "On" : "Off"); };
 $("#loudb").onclick = () => { try { localStorage.setItem("jv-loud", loudMode() ? "0" : "1"); } catch (e) {} optSet(); };
 $("#pttb").onclick = () => { try { localStorage.setItem("jv-ptt", pttMode() ? "0" : "1"); } catch (e) {} optSet(); if (on && !paused && state === "listen") listen(); };
