@@ -37,6 +37,7 @@ const L = require("./_live");
 const C = require("./_calendar");
 const N = require("./_notes");
 const M = require("./_more");
+const LLM = require("./_llm");
 
 const HEALTH =
   "\nIf the user mentions symptoms or how their body feels, be caring and ask one short question at a time. Give general self-care tips only, never a diagnosis or medicine doses. " +
@@ -252,34 +253,45 @@ module.exports = async (req, res) => {
     const pending = /^[\w-]{1,64}$/.test(String(pendingDraft || "")) ? String(pendingDraft) : "";
     const toolList = [...T.TASK_TOOLS, ...APP_TOOLS, ...extraTools, ...(mail.configured() ? TOOLS : []), ...(mail.configured() && pending ? SEND_TOOLS : []), ...(vision ? [ACTION_TOOL] : []), ...(avatar ? [AVATAR_TOOL, AVATAR_GESTURE] : [])];
     const messages = [{ role: "system", content: system }, ...history.slice(-12), { role: "user", content: user }];
-    // Free Groq plans cap tokens per minute per model. On a limit: wait a few seconds and retry, then try another model (each has its own limit).
+    // Free Groq plans cap tokens per day and per minute per model. On a limit: wait a few seconds and retry, then try another Groq model (each has its own limit),
+    // then the backups (Gemini, then a second provider) if their keys are set in Vercel. See _llm.js.
     const wait = ms => new Promise(r => setTimeout(r, ms));
-    const chain = [...new Set([model, process.env.GROQ_FALLBACK_MODEL, "openai/gpt-oss-120b"].filter(Boolean))];
+    const chain = LLM.providers([...new Set([model, process.env.GROQ_FALLBACK_MODEL, "openai/gpt-oss-120b"].filter(Boolean))]);
     const callChat = async (msgs, withTools) => {
-      let lastErr = "";
-      for (const m of chain) {
+      let firstErr = ""; const notes = [];
+      for (const p of chain) {
+        const prep = p.groq ? { messages: msgs, tools: toolList } : LLM.prepare(msgs, toolList);
         for (let attempt = 0; attempt < 2; attempt++) {
-          const r = await fetch(`${GROQ}/chat/completions`, {
-            method: "POST",
-            headers: { ...auth_h, "Content-Type": "application/json" },
-            body: JSON.stringify({
-              model: m,
-              messages: msgs,
-              max_tokens: stepWanted ? (spoken ? 900 : 1800) : spoken ? 400 : 1200,
-              ...(m.includes("gpt-oss") && { reasoning_effort: "low" }),
-              ...(withTools && { tools: toolList, tool_choice: "auto" }),
-            }),
-          });
-          if (r.ok) return (await r.json()).choices[0].message;
-          const t = await r.text(); lastErr = t;
+          let r;
+          try {
+            r = await fetch(`${p.url}/chat/completions`, {
+              method: "POST",
+              headers: { Authorization: `Bearer ${p.key}`, "Content-Type": "application/json" },
+              body: JSON.stringify({
+                model: p.model,
+                messages: prep.messages,
+                max_tokens: stepWanted ? (spoken ? 900 : 1800) : spoken ? 400 : 1200,
+                ...(p.groq && p.model.includes("gpt-oss") && { reasoning_effort: "low" }),
+                ...(withTools && { tools: prep.tools, tool_choice: "auto" }),
+              }),
+            });
+          } catch (e) { if (p.groq) throw e; notes.push(p.name + ": no connection"); break; }
+          if (r.ok) {
+            const j = await r.json(), mm = j.choices && j.choices[0] && j.choices[0].message;
+            if (mm) return mm;
+            if (p.groq) throw new Error("Thinking failed: empty answer");
+            notes.push(p.name + ": empty answer"); break;
+          }
+          const t = await r.text(); if (!firstErr) firstErr = t;
+          if (!p.groq) { notes.push(p.name + " " + r.status); break; }   // a backup that fails: just try the next one
           const modelProblem = r.status === 404 || /model/i.test(t) && /(not exist|not found|decommission|no access|do not have access|not supported)/i.test(t);
-          if (r.status !== 429 && !modelProblem) throw new Error("Thinking failed: " + t);
+          if (r.status !== 429 && r.status < 500 && !modelProblem) throw new Error("Thinking failed: " + t);
           if (modelProblem) break;                      // this model is not available to you: try the next one
           const sec = parseFloat((t.match(/try again in ([\d.]+)s/i) || [])[1]);
           if (attempt === 0 && sec > 0 && sec <= 6) await wait(sec * 1000 + 300); else break;   // short wait: retry same model; long wait: next model
         }
       }
-      throw new Error("Thinking failed: " + lastErr);
+      throw new Error("Thinking failed: " + firstErr + (notes.length ? " | backups: " + notes.join(", ") : ""));
     };
     let msg;
     for (let step = 0; step < 4; step++) {
@@ -292,6 +304,7 @@ module.exports = async (req, res) => {
       }
       const calls = useTools && msg.tool_calls;
       if (!calls || !calls.length) break;
+      calls.forEach((c, i) => { if (!c.id) c.id = "call_" + step + "_" + i; });   // some providers leave the id empty
       messages.push({ role: "assistant", content: msg.content || "", tool_calls: calls });
       for (const c of calls) messages.push({ role: "tool", tool_call_id: c.id, content: await runTool(c, actions, pending, tasks, X) });
     }
