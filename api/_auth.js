@@ -31,4 +31,10 @@ function samePasscode(input) {
   return crypto.timingSafeEqual(h(input), h(want));
 }
 
-module.exports = { issue, verify, check, samePasscode };
+// Optional: let the Tender Sprout AI website in without the passcode. Off unless TENDER_OPEN=1 is set in Vercel.
+// It only works for requests that come from that website's address, and /api/voice then treats them as Tender-only (no email, calendar or Jarvis features).
+function tenderOpen(req) {
+  return process.env.TENDER_OPEN === "1" && (req.headers.origin || "") === (process.env.TENDER_ORIGIN || "https://lhelnaldo123-hub.github.io");
+}
+
+module.exports = { issue, verify, check, samePasscode, tenderOpen };
